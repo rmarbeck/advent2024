@@ -1,6 +1,6 @@
 val scala3Version = "3.3.4"
 
-lazy val advent2018 = (project
+lazy val advent2024 = (project
   .in(file("."))
   .settings(
     name := "advent of code 2024",
