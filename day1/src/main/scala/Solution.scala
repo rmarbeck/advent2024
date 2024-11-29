@@ -11,6 +11,6 @@ object Solution:
     val result1 = s""
     val result2 = s""
 
-    (s"${result1}", s"${result2}")
+    (s"$result1", s"$result2")
 
 end Solution
