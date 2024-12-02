@@ -12,7 +12,7 @@ object Solution:
     val List(leftOccurrences, rightOccurrences) = List(left, right).map(_.groupMapReduce(identity)(_ => 1)(_ + _))
 
     val part2Result = leftOccurrences.map:
-      case (value, nbInLeft ) => value * (nbInLeft * rightOccurrences.getOrElse(value, 0))
+      case (value, nbInLeft) => value * (nbInLeft * rightOccurrences.getOrElse(value, 0))
     .sum
 
     val result1 = s"$part1Result"
