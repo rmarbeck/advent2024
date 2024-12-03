@@ -15,6 +15,6 @@ object Solution:
 
 end Solution
 
-val Mul: Regex = """mul\((\d+),(\d+)\)""".r
+val Mul: Regex = """mul\((\d{1,3}),(\d{1,3})\)""".r
 
 def multiply(input: String): Iterator[Long] = for case Mul(first, second) <- Mul.findAllIn(input) yield first.toLong * second.toLong
