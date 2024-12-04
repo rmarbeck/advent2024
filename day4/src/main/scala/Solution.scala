@@ -1,18 +1,18 @@
 object Solution:
   def run(inputLines: Seq[String]): (String, String) =
-    val test = inputLines.map(_.toCharArray).toArray
+    val grid = inputLines.map(_.toCharArray).toArray
 
     def readChar(posX: Int, posY: Int): Char =
-      if (test.isDefinedAt(posX) && test(posX).isDefinedAt(posY))
-        test(posX)(posY)
+      if (grid.isDefinedAt(posX) && grid(posX).isDefinedAt(posY))
+        grid(posX)(posY)
       else
         '.'
 
     val result1 =
       (for
-        x <- test.indices
-        y <- test(x).indices
-        if test(x)(y) == 'X'
+        x <- grid.indices
+        y <- grid(x).indices
+        if grid(x)(y) == 'X'
       yield
         (for
           dirX <- List(-1, 0, 1)
@@ -29,16 +29,16 @@ object Solution:
 
     val result2 =
       (for
-        x <- test.indices
-        y <- test(x).indices
-        if test(x)(y) == 'A'
+        x <- grid.indices
+        y <- grid(x).indices
+        if grid(x)(y) == 'A'
       yield
         val words =
           val posX = List(1, -1, -1, 1)
           val posY = List(-1, 1, -1, 1)
           posX.zip(posY).map:
             case (curX, curY) => readChar(x + curX, y + curY)
-          .mkString("").grouped(2).toList
+          .mkString("").grouped(2)
 
         if words.forall(word => word.count(_ == 'S') == 1 && word.count(_ == 'M') == 1) then
           1
