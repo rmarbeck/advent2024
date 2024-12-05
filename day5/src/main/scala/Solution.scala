@@ -18,7 +18,7 @@ object Solution:
     val invalidReportsSorted = invalidReports.map:
       update =>
         given Update = update
-        update.sorted(using SpecialOrder().updateOrd)
+        update.sorted(using UpdateOrdering.updateOrd)
 
     val List(result1, result2) = List(validReports, invalidReportsSorted).map(_.map(middle).sum)
 
@@ -43,8 +43,8 @@ def isValid(update: List[Int])(using rules: RuleSet): Boolean =
   check(List(update.head), update.tail)
 
 //Ordering for part 2
-class SpecialOrder(using rules: RuleSet, update: Update):
-  given updateOrd: Ordering[Int] with
+object UpdateOrdering:
+  given updateOrd(using rules: RuleSet, update: Update): Ordering[Int] with
     override def compare(x: Int, y: Int): Int =
       def currentSituationInList: Int = (update.indexOf(x) - update.indexOf(y)).sign
       (rules.get(y), rules.get(x)) match
