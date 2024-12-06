@@ -1,6 +1,9 @@
 import scala.annotation.tailrec
-import scala.collection.parallel._
+import scala.collection.mutable.{HashSet, Set as MutSet}
+import scala.collection.parallel.*
 import collection.parallel.CollectionConverters.ImmutableSetIsParallelizable
+import scala.collection
+import scala.collection.mutable
 
 type Grid = IArray[IArray[Char]]
 
@@ -23,7 +26,7 @@ object Solution:
 
     val result1 = exploredPositions.size
 
-    val result2 = exploredPositions.par.withFilter(_ != findStart).count(isALoop(findStart, Set(findStart)))
+    val result2 = exploredPositions.par.withFilter(_ != findStart).count(isALoop(findStart, mutable.HashSet[POV](findStart))(_))
 
     (s"$result1", s"$result2")
 
@@ -48,7 +51,7 @@ def walkThrough(pov: POV, explored: Set[Position])(using grid: Grid): Set[Positi
     explored
 
 @tailrec
-def isALoop(pov: POV, explored: Set[POV])(addedConstraint: Position)(using grid: Grid): Boolean =
+def isALoop(pov: POV, explored: MutSet[POV])(addedConstraint: Position)(using grid: Grid): Boolean =
   val nextPOV @ POV(nextPosition @ Position(x, y), _) = pov.next
   if (explored(nextPOV))
     true
@@ -56,7 +59,7 @@ def isALoop(pov: POV, explored: Set[POV])(addedConstraint: Position)(using grid:
     if (nextPosition.isDefined)
       (grid(x)(y), addedConstraint == nextPosition) match
         case ('#', _) | (_, true) => isALoop(pov.turn, explored)(addedConstraint)
-        case _ => isALoop(pov.next, explored + nextPOV)(addedConstraint)
+        case _ =>  isALoop(pov.next, explored += nextPOV)(addedConstraint)
     else
       false
 
