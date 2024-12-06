@@ -1,12 +1,14 @@
 import scala.annotation.tailrec
+import scala.collection.parallel._
+import collection.parallel.CollectionConverters.ImmutableSetIsParallelizable
 
-type Grid = Array[Array[Char]]
+type Grid = IArray[IArray[Char]]
 
 object Solution:
   def run(inputLines: Seq[String]): (String, String) =
     import Dir._
 
-    val grid = inputLines.map(_.toCharArray).toArray.transpose
+    given grid: Grid = IArray.from(inputLines.map(IArray.from)).transpose
 
     val findStart =
       (for
@@ -14,39 +16,55 @@ object Solution:
         y <- grid(0).indices
         if grid(x)(y) != '.' && grid(x)(y) != '#'
       yield
-        Position(x, y, Dir.fromChar(grid(x)(y)))
-        ).head
+        POV(Position(x, y), Dir.fromChar(grid(x)(y)))
+      ).head
 
+    val exploredPositions = walkThrough(findStart, Set(findStart.position))
 
-    given Grid = grid
+    val result1 = exploredPositions.size
 
-    val result1 = walkThrough(findStart, Set((findStart.x, findStart.y)))
-    val result2 = s""
+    val result2 = exploredPositions.par.withFilter(_ != findStart).count(isALoop(findStart, Set(findStart)))
 
     (s"$result1", s"$result2")
 
-case class Position(x: Int, y: Int, dir: Dir):
-  def next: Position =
-    copy(x = x+dir.moveX, y= y+dir.moveY)
+case class Position(x: Int, y: Int):
+  def next(dir: Dir): Position = copy(x = x + dir.moveX, y = y + dir.moveY)
+  def isDefined(using grid: Grid): Boolean = grid.isDefinedAt(x) && grid(x).isDefinedAt(y)
 
-  def turn: Position =
-    copy(dir = dir.next)
+case class POV(position: Position, dir: Dir):
+  lazy val Position(x, y) = position
+  def next: POV = copy(position.next(dir), dir)
+
+  def turn: POV = copy(dir = dir.next)
 
 @tailrec
-def walkThrough(position: Position, explored: Set[(Int, Int)])(using grid: Grid): Int =
-  val (x, y) = (position.next.x, position.next.y)
-  if (grid.isDefinedAt(x) && grid(x).isDefinedAt(y))
+def walkThrough(pov: POV, explored: Set[Position])(using grid: Grid): Set[Position] =
+  val nextPov @ POV(nextPosition @ Position(x, y), _) = pov.next
+  if (nextPosition.isDefined)
     grid(x)(y) match
-      case '#' => walkThrough(position.turn, explored)
-      case _ => walkThrough(position.next, explored + ((x, y)))
+      case '#' => walkThrough(pov.turn, explored)
+      case _ => walkThrough(pov.next, explored + nextPov.position)
   else
-    explored.size
+    explored
+
+@tailrec
+def isALoop(pov: POV, explored: Set[POV])(addedConstraint: Position)(using grid: Grid): Boolean =
+  val nextPOV @ POV(nextPosition @ Position(x, y), _) = pov.next
+  if (explored(nextPOV))
+    true
+  else
+    if (nextPosition.isDefined)
+      (grid(x)(y), addedConstraint == nextPosition) match
+        case ('#', _) | (_, true) => isALoop(pov.turn, explored)(addedConstraint)
+        case _ => isALoop(pov.next, explored + nextPOV)(addedConstraint)
+    else
+      false
 
 enum Dir(val moveX: Int, val moveY: Int):
-  case N extends Dir(0, -1)
-  case E extends Dir(1, 0)
-  case S extends Dir(0, 1)
-  case W extends Dir(-1, 0)
+  private case N extends Dir(0, -1)
+  private case E extends Dir(1, 0)
+  private case S extends Dir(0, 1)
+  private case W extends Dir(-1, 0)
 
   def next: Dir =
     this match
@@ -54,7 +72,6 @@ enum Dir(val moveX: Int, val moveY: Int):
       case E => S
       case S => W
       case W => N
-
 
 object Dir:
   def fromChar(char: Int): Dir =
