@@ -4,6 +4,8 @@ type RuleSet = Map[Int, List[Int]]
 type Update = List[Int]
 
 object Solution:
+
+  
   def run(inputLines: Seq[String]): (String, String) =
 
     val (rules, updates) = inputLines.foldLeft((Map(), Nil): (RuleSet, List[Update])):
