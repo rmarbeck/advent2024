@@ -11,8 +11,8 @@ To select one day, in project root launch sbt and
 project adventdayXX
 run | test
 ```
-... or, change to DayXX and launch sbt
+... or, change to dayXX and launch sbt
 ```bash
-cd Day XX
+cd dayXX
 sbt
 ```
