@@ -58,8 +58,8 @@ def isALoop(pov: POV, explored: MutSet[POV])(addedConstraint: Position)(using gr
   else
     if (nextPosition.isDefined)
       (grid(x)(y), addedConstraint == nextPosition) match
-        case ('#', _) | (_, true) => isALoop(pov.turn, explored)(addedConstraint)
-        case _ =>  isALoop(pov.next, explored += nextPOV)(addedConstraint)
+        case ('#', _) | (_, true) => isALoop(pov.turn, explored += pov)(addedConstraint)
+        case _ =>  isALoop(pov.next, explored)(addedConstraint)
     else
       false
 
