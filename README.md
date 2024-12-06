@@ -1,17 +1,17 @@
 # advent2024
 Advent of Code 2024 in Scala
 
-To test all days
+To test all days, from root dir launch sbt test
 ```bash
 sbt test
 ```
 
-To select one day
+To select one day, in project root launch sbt and
 ```sbt
 project adventdayXX
 run | test
 ```
-... or
+... or, change to DayXX and launch sbt
 ```bash
 cd Day XX
 sbt
