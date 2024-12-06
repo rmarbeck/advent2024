@@ -1,9 +1,10 @@
 import scala.annotation.tailrec
 import scala.collection.mutable.{HashSet, Set as MutSet}
 import scala.collection.parallel.*
-import collection.parallel.CollectionConverters.ImmutableSetIsParallelizable
+import scala.collection.parallel.CollectionConverters.ImmutableSetIsParallelizable
 import scala.collection
 import scala.collection.mutable
+import scala.util.Try
 
 type Grid = IArray[IArray[Char]]
 
@@ -13,20 +14,20 @@ object Solution:
 
     given grid: Grid = IArray.from(inputLines.map(IArray.from)).transpose
 
-    val findStart =
+    val startingPOV =
       (for
-        x <- grid.indices
-        y <- grid(0).indices
-        if grid(x)(y) != '.' && grid(x)(y) != '#'
+        x <- grid.indices; y <- grid(0).indices
+        value = grid(x)(y) if isDir(value)
+        dir = Dir.fromChar(value)
       yield
-        POV(Position(x, y), Dir.fromChar(grid(x)(y)))
+        POV(Position(x, y), dir)
       ).head
 
-    val exploredPositions = walkThrough(findStart, Set(findStart.position))
+    val exploredPositions = walkThrough(startingPOV, Set(startingPOV.position))
 
     val result1 = exploredPositions.size
 
-    val result2 = exploredPositions.par.withFilter(_ != findStart).count(isALoop(findStart, mutable.HashSet[POV](findStart))(_))
+    val result2 = exploredPositions.par.withFilter(_ != startingPOV).count(isALoop(startingPOV, mutable.HashSet[POV](startingPOV))(_))
 
     (s"$result1", s"$result2")
 
@@ -37,7 +38,6 @@ case class Position(x: Int, y: Int):
 case class POV(position: Position, dir: Dir):
   lazy val Position(x, y) = position
   def next: POV = copy(position.next(dir), dir)
-
   def turn: POV = copy(dir = dir.next)
 
 @tailrec
@@ -77,9 +77,11 @@ enum Dir(val moveX: Int, val moveY: Int):
       case W => N
 
 object Dir:
-  def fromChar(char: Int): Dir =
+  def isDir(char: Char): Boolean = Try[Dir](fromChar(char)).isSuccess
+  def fromChar(char: Char): Dir =
     char match
       case '^' => N
       case '>' => E
       case 'v' => S
-      case _ => W
+      case '<' => W
+      case _ => throw Exception("Not a Dir")
