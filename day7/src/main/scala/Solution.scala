@@ -21,7 +21,11 @@ object Solution:
 
     (s"$result1", s"$result2")
 
-case class Equation(result: Long, terms: List[Long])
+case class Equation(result: Long, terms: List[Long]):
+  lazy val minimums =
+    val diffs = terms.scanRight(0L)(_ + _)
+    val corrections = terms.length to 0 by -1
+    diffs.zip(corrections).map(_ - _ - result).tail
 object Equation:
   def apply(resultStr: String, termsStr: String): Equation = Equation(resultStr.toLong, termsStr.split(" ").toList.map(_.toLong))
 
@@ -35,9 +39,6 @@ def matching(part: Part)(eq: Equation): Boolean =
       case Part2 => allFunctions
 
   val Equation(result, terms) = eq
-  val diffs = terms.scanRight(0L)(_ + _)
-  val corrections = terms.length to 0 by -1
-  val minimums = diffs.zip(corrections).map(_ - _ - result).tail
 
   @tailrec
   def doMatch(current: Set[Long], remainingTerms: List[Long], minimums: List[Long]): Boolean =
@@ -54,7 +55,7 @@ def matching(part: Part)(eq: Equation): Boolean =
           doMatch(next, tail, minimums.tail)
       case Nil => current(result)
 
-  doMatch(Set(terms.head), terms.tail, minimums.tail)
+  doMatch(Set(terms.head), terms.tail, eq.minimums.tail)
 
 enum Part:
   case Part1; case Part2
