@@ -7,19 +7,20 @@ object Solution:
 
     given grid: Grid = IArray.from(inputLines.map(IArray.from))
 
-    val antennas = (for
+    val antennasPositionsGrouped = (for
       x <- grid.indices
       y <- grid(0).indices
       currentAntenna = grid(x)(y)
       if currentAntenna != '.'
     yield
       Antenna(Position(x, y), currentAntenna)
-      ).groupMap(_.value)(_.position)
+      ).groupMap(_.value)(_.position).values.filter(_.size >= 2)
 
-    val antinodes = antennas.values.flatMap(guessAntinodes(Part1)).toSet
-    val antinodes2 = antennas.values.flatMap(guessAntinodes(Part2)).toSet
+    val (antinodes, antinodes2) =
+      antennasPositionsGrouped.foldLeft((Set(), Set())):
+        case (acc, positions) => (acc._1 ++ guessAntinodes(Part1)(positions), acc._2 ++ guessAntinodes(Part2)(positions))
 
-    val forResult2 = antennas.filter(_._2.size >= 2).flatMap(_._2).toSet ++ antinodes2
+    val forResult2 = antennasPositionsGrouped.flatten.toSet ++ antinodes2
 
     val result1 = antinodes.size
     val result2 = forResult2.size
