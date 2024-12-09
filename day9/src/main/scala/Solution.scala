@@ -7,8 +7,6 @@ object Solution:
     val blocks = inputLines.head.grouped(2).zipWithIndex.toArray.map:
       case (size, index) => Block(index, size.head.asDigit, size.last.asDigit)
 
-    println(blocks.length)
-
     println(compute(blocks))
 
     val result1 = s""
@@ -19,15 +17,7 @@ object Solution:
 
 case class Block(id: Int,fileLength: Int, free: Int):
   def splitAt(length: Int): (Block, Block) = (this.copy(fileLength = length, free = 0), this.copy(fileLength = fileLength - length, free = free))
-  def sumAt(startIndex: Int): Long =
-    require(fileLength > 0)
-    val result1 = (id.toFloat * (2f * startIndex.toFloat + fileLength.toFloat -1f) * fileLength.toFloat / 2f).toLong
-    val result2 =  (id.toDouble * (2d * startIndex.toDouble + fileLength.toDouble -1d) * fileLength.toDouble / 2d).toLong
-    if (result2 != result1)
-      println(s"$result2 != $result1")
-      println(s"${id.toFloat} ${startIndex.toFloat} ${fileLength.toFloat} ${((2f * startIndex.toFloat + fileLength.toFloat -1f) * fileLength.toFloat / 2f).toLong}")
-      println(s"${id.toDouble} ${startIndex.toDouble} ${fileLength.toDouble} ${((2d * startIndex.toDouble + fileLength.toDouble -1d) * fileLength.toDouble / 2d).toLong}")
-    result2
+  def sumAt(startIndex: Int): Long = id * ((2 * startIndex + fileLength - 1) * fileLength / 2f).toLong
 
   def freeIt: Block = this.copy(fileLength = 0)
 
