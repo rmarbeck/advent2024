@@ -5,22 +5,20 @@ object Solution:
   def run(inputLines: Seq[String]): (String, String) =
 
     val blocks = inputLines.head.grouped(2).zipWithIndex.toArray.map:
+      case (size, index) if size.length == 1 => Block(index, size.head.asDigit, 0)
       case (size, index) => Block(index, size.head.asDigit, size.last.asDigit)
 
-    println(compute(blocks))
-    println("\n"+computePart2(blocks))
-
-    val result1 = s""
-    val result2 = s""
+    val result1 = s"${compute(blocks)}"
+    val result2 = s"${computePart2(blocks)}"
 
     (s"$result1", s"$result2")
 
 
 case class Block(id: Int,fileLength: Int, free: Int):
-  def splitAt(length: Int): (Block, Block) = (this.copy(fileLength = length, free = 0), this.copy(fileLength = fileLength - length, free = free))
+  lazy val total: Int = fileLength + free
   def sumAt(startIndex: Int): Long = id * ((2 * startIndex + fileLength - 1) * fileLength / 2f).toLong
 
-  def expandFrom(other: Block): Block = this.copy(free = this.free + other.fileLength + other.free)
+  def addFree(freeToAdd: Int): Block = this.copy(free = free + freeToAdd)
 
   def freeIt: Block = this.copy(fileLength = 0)
 
@@ -33,23 +31,21 @@ def compute(blocks: Array[Block]): Long =
       case Block(_, 0, freeInHead) =>
         blocksDQ.length match
           case 1 => value
-          case _ => blocksDQ.last match
-            case last @ Block(_, fileLengthInLast, _) if fileLengthInLast <= freeInHead =>
-              blocksDQ.removeHead()
-              blocksDQ.prepend(last.copy(free = freeInHead - fileLengthInLast))
-              blocksDQ.removeLast()
-              computeRec(blocksDQ, index, value)
-            case last @ Block(_, fileLengthInLast, _) =>
-              blocksDQ.removeHead()
-              blocksDQ.removeLast()
-              blocksDQ.append(last.copy(fileLength = fileLengthInLast - freeInHead))
-              blocksDQ.prepend(last.copy(fileLength = freeInHead, free = 0))
-              computeRec(blocksDQ, index, value)
+          case _ =>
+            blocksDQ.removeHead()
+            blocksDQ.last match
+              case last @ Block(_, fileLengthInLast, _) if fileLengthInLast <= freeInHead =>
+                blocksDQ.removeLast()
+                blocksDQ.prepend(last.copy(free = freeInHead - fileLengthInLast))
+              case last @ Block(_, fileLengthInLast, _) =>
+                blocksDQ.removeLast()
+                blocksDQ.append(last.copy(fileLength = fileLengthInLast - freeInHead))
+                blocksDQ.prepend(last.copy(fileLength = freeInHead, free = 0))
+            computeRec(blocksDQ, index, value)
       case headBlock =>
         blocksDQ.removeHead()
         if (headBlock.free != 0)
           blocksDQ.prepend(headBlock.freeIt)
-        //print(headBlock.id.toString*fileLength)
         computeRec(blocksDQ, index + headBlock.fileLength, value + headBlock.sumAt(index))
 
   computeRec(mutable.ArrayDeque.from(blocks), 0, 0L)
@@ -57,24 +53,22 @@ def compute(blocks: Array[Block]): Long =
 def computePart2(blocks: Array[Block]): Long =
   @tailrec
   def computeRec(blocksDQ: mutable.ArrayDeque[Block], index: Int): Array[Block] =
-    blocksDQ.foreach(print)
-    println
     index match
       case 0 => blocksDQ.toArray
-      case value =>
-        val freePlaceToFind = blocksDQ(value).fileLength
-        println(freePlaceToFind)
-        val found = blocksDQ.zipWithIndex.filter(_._2 < index).find(_._1.free >= freePlaceToFind)
+      case blockMovingIndex =>
+        val blockMoving = blocksDQ(blockMovingIndex)
+        val freePlaceToFind = blockMoving.fileLength
+        val found = blocksDQ.take(index).zipWithIndex.find(_._1.free >= freePlaceToFind)
         found match
           case None => computeRec(blocksDQ, index - 1)
-          case Some(block, innerIndex) =>
-            blocksDQ.update(innerIndex, block.copy(free = 0))
-            blocksDQ.insert(innerIndex + 1, blocksDQ(value).copy(free = block.free - freePlaceToFind))
-            blocksDQ.remove(index + 1)
-            blocksDQ.update(index, blocksDQ(index).copy(free = blocksDQ(index).free + blocksDQ(value).fileLength + blocksDQ(value).free ))
-            computeRec(blocksDQ, blocksDQ.length - 1)
+          case Some(receivingBlock, receivingBlockIndex) =>
+            blocksDQ.update(receivingBlockIndex, receivingBlock.copy(free = 0))
+            blocksDQ.remove(blockMovingIndex)
+            blocksDQ.insert(receivingBlockIndex + 1, blockMoving.copy(free = receivingBlock.free - blockMoving.fileLength))
+            blocksDQ.update(blockMovingIndex, blocksDQ(blockMovingIndex).addFree(blockMoving.total))
+            computeRec(blocksDQ, index)
 
-  computeRec(mutable.ArrayDeque.from(blocks), blocks.length - 1).zipWithIndex.foldLeft(0L):
-    case (acc, (block, index)) =>
-      print(block)
-      acc + block.sumAt(index)
+  computeRec(mutable.ArrayDeque.from(blocks), blocks.length - 1).foldLeft((0L, 0)):
+    case (acc, block) =>
+      (acc._1 + block.sumAt(acc._2), acc._2 + block.total)
+  ._1
