@@ -64,14 +64,14 @@ def computePart2(blocks: Array[Block]): Long =
       case value =>
         val freePlaceToFind = blocksDQ(value).fileLength
         println(freePlaceToFind)
-        val found = blocksDQ.zipWithIndex.find(_._1.free >= freePlaceToFind)
+        val found = blocksDQ.zipWithIndex.filter(_._2 < index).find(_._1.free >= freePlaceToFind)
         found match
           case None => computeRec(blocksDQ, index - 1)
           case Some(block, innerIndex) =>
             blocksDQ.update(innerIndex, block.copy(free = 0))
             blocksDQ.insert(innerIndex + 1, blocksDQ(value).copy(free = block.free - freePlaceToFind))
             blocksDQ.remove(index + 1)
-            blocksDQ.update(index, blocksDQ(index).copy(free = blocksDQ(index).free + block.fileLength + block.free))
+            blocksDQ.update(index, blocksDQ(index).copy(free = blocksDQ(index).free + blocksDQ(value).fileLength + blocksDQ(value).free ))
             computeRec(blocksDQ, blocksDQ.length - 1)
 
   computeRec(mutable.ArrayDeque.from(blocks), blocks.length - 1).zipWithIndex.foldLeft(0L):
