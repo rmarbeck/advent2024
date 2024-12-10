@@ -8,7 +8,7 @@ object Solution:
       case (size, index) if size.length == 1 => Block(index, size.head.asDigit, 0)
       case (size, index) => Block(index, size.head.asDigit, size.last.asDigit)
 
-    val result1 = s"${compute(blocks)}"
+    val result1 = s"${computePart1(blocks)}"
     val result2 = s"${computePart2(blocks)}"
 
     (s"$result1", s"$result2")
@@ -24,7 +24,7 @@ case class Block(id: Int,fileLength: Int, free: Int):
 
   override def toString: String = id.toString*fileLength + "."*free
 
-def compute(blocks: Array[Block]): Long =
+def computePart1(blocks: Array[Block]): Long =
   @tailrec
   def computeRec(blocksDQ: mutable.ArrayDeque[Block], index: Int, value: Long): Long =
     blocksDQ.head match
