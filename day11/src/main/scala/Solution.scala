@@ -1,19 +1,48 @@
 import scala.annotation.tailrec
 import scala.collection.mutable
-import scala.collection.mutable.Map
 
 type Stone = Long
-type Frequency = Long
+type Frequencies = List[(Stone, Long)]
 
 object Solution:
   def run(inputLines: Seq[String]): (String, String) =
 
     val stones = inputLines.head.split(" ").map(_.toLong).toList
 
-    val result1 = s"${calc2(stones, 25)}"
-    val result2 = s"${calc2(stones, 75)}"
+    val result1 = s"${blink(stones, 25, 5)}"
+    val result2 = s"${blink(stones, 75, 5)}"
 
     (s"$result1", s"$result2")
+
+def blink(stones: List[Stone], remainingSteps: Int, batchSize: Int = 5): Long =
+  @tailrec
+  def blinkRec(stones: Frequencies, remainingSteps: Int): Frequencies =
+    remainingSteps match
+      case 0 => stones
+      case other =>
+        val frequenciesAfterBatchSteps = stones.flatMap:
+          case (value, frequency) => calculateByBatch(value, batchSize).map:
+            case (stone, subFrequency) => (stone, subFrequency * frequency)
+
+        blinkRec(frequenciesAfterBatchSteps.groupMapReduce(_._1)(_._2)(_ + _).toList, remainingSteps - batchSize)
+
+  blinkRec(stones.toFrequencyList, remainingSteps).map(_._2).sum
+
+
+object Cache:
+  private val cache: mutable.Map[Stone, Frequencies] = mutable.Map()
+
+  def calculateByBatchCached(stone: Stone, batchSize: Int): Frequencies =
+    cache.getOrElseUpdate(stone, calculateByBatch(stone, batchSize))
+
+def calculateByBatch(stone: Stone, batchSize: Int): Frequencies =
+  @tailrec
+  def calculateBy1(stones: List[Stone], remainingSteps: Int): List[Stone] =
+    remainingSteps match
+      case 0 => stones
+      case other => calculateBy1(stones.flatMap(_.next), remainingSteps - 1)
+
+  calculateBy1(List(stone), batchSize).toFrequencyList
 
 extension (value: Long)
   def next: Seq[Stone] =
@@ -25,34 +54,4 @@ extension (value: Long)
       case other => List(value * 2024)
 
 extension (stones: List[Stone])
-  def toFrequencyList: List[(Stone, Frequency)] = stones.groupMapReduce(identity)(_ => 1L)(_ + _).toList
-
-@tailrec
-def calculate(stones: List[Stone], remainingSteps: Int): List[Stone] =
-  remainingSteps match
-    case 0 => stones
-    case other => calculate(stones.flatMap(_.next), remainingSteps - 1)
-
-object Cache:
-  private val cache: mutable.Map[Stone, List[(Stone, Frequency)]] = mutable.Map()
-
-  def calculateBy5Cached(stone: Stone): List[(Stone, Frequency)] =
-    cache.getOrElseUpdate(stone, calculateBy5(stone))
-
-def calculateBy5(stone: Stone): List[(Stone, Frequency)] =
-  calculate(List(stone), 5).toFrequencyList
-
-def calc2(stones: List[Stone], remainingSteps: Int): Long =
-  calculate2(stones.toFrequencyList, remainingSteps).map(_._2).sum
-
-@tailrec
-def calculate2(stones: List[(Stone, Frequency)], remaingingSteps: Int): List[(Stone, Frequency)] =
-  remaingingSteps match
-    case 0 => stones
-    case other =>
-      val test = stones.flatMap:
-        case (value, frequency) => (calculateBy5(value).map:
-          case (stone, subFrequency) => (stone, subFrequency * frequency)
-          )
-
-      calculate2(test.groupMapReduce(_._1)(_._2)(_ + _).toList ,remaingingSteps - 5)
+  def toFrequencyList: Frequencies = stones.groupMapReduce(identity)(_ => 1L)(_ + _).toList
