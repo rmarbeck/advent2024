@@ -27,7 +27,7 @@ def fencing(exploring: Set[Plant] = Set(), explored: Set[Plant] = Set(), remaini
   exploring.size match
     case 0 =>
       val (area, (part1, part2)) = explored.foldLeft((0, (0, 0))):
-        case ((nb, (perimeterPart1, perimeterPart2)), plant) => (nb + 1, (perimeterPart1 + plant.perimeterPart1, perimeterPart2 + plant.perimeterPart2))
+        case ((nb, perimeters), plant) => (nb + 1, perimeters + (plant.perimeterPart1, plant.perimeterPart2))
       val newValue = currentValue + (area * part1, area * part2)
 
       remaining.size match
@@ -44,11 +44,11 @@ def fencing(exploring: Set[Plant] = Set(), explored: Set[Plant] = Set(), remaini
 case class Plant(x: Int, y: Int, typeOfPlant: Char):
 
   def perimeterPart1(using garden: Garden): Int = 4 - siblingsConnected.size
-  def perimeterPart2(using garden: Garden): Int = countEdges
+  def perimeterPart2(using garden: Garden): Int = countCorners
 
   private def findByDrift(driftX: Int, driftY: Int)(using garden: Garden): Option[Plant] = garden.get((x + driftX, y + driftY))
   private def isTheSameThan(drift: (Int, Int))(using garden: Garden): Boolean = findByDrift(drift._1, drift._2).map(_.typeOfPlant).contains(typeOfPlant)
-  private def countEdges(using garden: Garden): Int =
+  private def countCorners(using garden: Garden): Int =
     val left = isTheSameThan(leftDrift)
     val right = isTheSameThan(rightDrift)
     val top = isTheSameThan(topDrift)
@@ -68,14 +68,9 @@ case class Plant(x: Int, y: Int, typeOfPlant: Char):
         case (false, true, true) => true
         case (true, false, true) => true
         case _ => false
-    def bottomLeft: Boolean =
-      (left, bottom) match
-        case (false, false) => true
-        case _ => false
-    def bottomRight: Boolean =
-      (right, bottom) match
-        case (false, false) => true
-        case _ => false
+    def bottomLeft: Boolean = ! (left || bottom)
+
+    def bottomRight: Boolean = ! (right || bottom)
 
     List(topLeft, topRight, bottomRight, bottomLeft).count(identity)
 
