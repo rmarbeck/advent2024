@@ -5,6 +5,10 @@ import scala.annotation.targetName
 type EquationBuilder = (Option[Rule], Option[Rule], Option[Prize])
 
 object Solution:
+  val aPressCost = 3
+  val bPressCost = 1
+  val part2PrizeAddition = 10_000_000_000_000L
+
   def run(inputLines: Seq[String]): (String, String) =
 
     val equationBuilders = inputLines.grouped(4).toList.collect:
@@ -15,8 +19,7 @@ object Solution:
           case (acc, s"Prize: X=${scoreX}, Y=${scoreY}")    =>  (acc._1, acc._2, Some(Prize(scoreX, scoreY)))
           case (acc, _) => acc
 
-    val result1 = s"${equationBuilders.map(Equation.fromBuilderPart1).map(_.price).sum}"
-    val result2 = s"${equationBuilders.map(Equation.fromBuilderPart2).map(_.price).sum}"
+    val List(result1, result2) = List(Equation.fromBuilderPart1, Equation.fromBuilderPart2).map(equationBuilders.map(_).map(_.price).sum)
 
     (s"$result1", s"$result2")
 
@@ -39,29 +42,20 @@ case class Equation(ruleA: Rule, ruleB: Rule, prize: Prize):
   def price: Long =
     solve match
       case None => 0
-      case Some(x, y) => 3 * x + y
+      case Some(x, y) => Solution.aPressCost * x + Solution.bPressCost * y
 
 object Equation:
   def fromBuilderPart1(builder: EquationBuilder): Equation =
     (for
-      ruleA <- builder._1
-      ruleB <- builder._2
-      prize <- builder._3
+      ruleA <- builder._1; ruleB <- builder._2; prize <- builder._3
     yield
       Equation(ruleA, ruleB, prize)
-      ) match
+    ) match
       case Some(equation) => equation
       case _ => throw Exception("Builder is not fully defined")
+
   def fromBuilderPart2(builder: EquationBuilder): Equation =
-    (for
-      ruleA <- builder._1
-      ruleB <- builder._2
-      prize <- builder._3
-    yield
-      Equation(ruleA, ruleB, prize + 10000000000000L)
-      ) match
-      case Some(equation) => equation
-      case _ => throw Exception("Builder is not fully defined")
+    fromBuilderPart1(builder.copy(_3 = builder._3.map(_ + Solution.part2PrizeAddition)))
 
 enum Button:
   case A, B
