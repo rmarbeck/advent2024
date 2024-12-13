@@ -40,10 +40,7 @@ case class Equation(ruleA: Rule, ruleB: Rule, prize: Prize):
         yield
           (x, y)
 
-  def price: Long =
-    solve match
-      case None => 0
-      case Some(x, y) => Solution.aPressCost * x + Solution.bPressCost * y
+  def price: Long = solve.map(Solution.aPressCost * _ + Solution.bPressCost * _).getOrElse(0)
 
 object Equation:
   def fromBuilderPart1(builder: EquationBuilder): Equation =
