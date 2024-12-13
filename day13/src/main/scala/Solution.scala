@@ -75,5 +75,5 @@ object Prize:
 extension (doubleValue: Double)
   def asLong: Option[Long] =
     doubleValue.toLong match
-      case value if value == doubleValue => Some(value)
+      case longValue if longValue == doubleValue => Some(longValue)
       case _ => None
