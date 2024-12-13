@@ -38,11 +38,11 @@ def fencing(exploring: Set[Plant] = Set(), explored: Set[Plant] = Set(), remaini
 
     case _ =>
       val (singleHeadingSet, tail) = exploring.splitAt(1)
-      val current = singleHeadingSet.head
-      fencing((current.siblingsConnected ++ tail) -- explored, explored + singleHeadingSet.head, remaining - singleHeadingSet.head, currentValue)
+      val currentPlant = singleHeadingSet.head
+      fencing((currentPlant.siblingsConnected -- explored) ++ tail , explored + currentPlant, remaining - currentPlant, currentValue)
 
 case class Plant(x: Int, y: Int, typeOfPlant: Char):
-
+  import Plant._
   def perimeterPart1(using garden: Garden): Int = 4 - siblingsConnected.size
   def perimeterPart2(using garden: Garden): Int = countCorners
 
@@ -80,7 +80,6 @@ case class Plant(x: Int, y: Int, typeOfPlant: Char):
 
 object Plant:
   val drifts @ List(leftDrift, rightDrift, topDrift, bottomDrift): List[(Int, Int)] = List((-1, 0), (1, 0), (0, -1), (0, 1))
-export Plant._
 
 extension (value: (Int, Int))
   def +(other: (Int, Int)): (Int, Int) = (value._1 + other._1, value._2 + other._2)
