@@ -12,8 +12,7 @@ object Solution:
   def run(inputLines: Seq[String]): (String, String) =
 
     val equationBuilders = inputLines.grouped(4).toList.collect:
-      case lines =>
-        lines.foldLeft((None, None, None): EquationBuilder):
+      _.foldLeft((None, None, None): EquationBuilder):
           case (acc, s"Button A: X+${driftX}, Y+${driftY}") =>  (Some(Rule(A, driftX, driftY)), acc._2, acc._3)
           case (acc, s"Button B: X+${driftX}, Y+${driftY}") =>  (acc._1, Some(Rule(B, driftX, driftY)), acc._3)
           case (acc, s"Prize: X=${scoreX}, Y=${scoreY}")    =>  (acc._1, acc._2, Some(Prize(scoreX, scoreY)))
@@ -24,6 +23,10 @@ object Solution:
     (s"$result1", s"$result2")
 
 case class Equation(ruleA: Rule, ruleB: Rule, prize: Prize):
+  /*
+   *    a * x + b * y = e
+   *    c * x + d * y = f
+   */
   val (a, b, c, d, e, f) = (ruleA.driftX, ruleB.driftX, ruleA.driftY, ruleB.driftY, prize.scoreX, prize.scoreY)
   private lazy val det = (a * d) - (b * c)
   private lazy val numX = (e * d) - (b * f)
@@ -31,13 +34,11 @@ case class Equation(ruleA: Rule, ruleB: Rule, prize: Prize):
   def solve: Option[(Long, Long)] =
     det match
       case 0 => None
-      case denom =>
-        val xAsDouble = numX / denom.toDouble
-        val yAsDouble = numY / denom.toDouble
-        if (xAsDouble.toLong == xAsDouble && yAsDouble.toLong == yAsDouble)
-          Some(numX / denom, numY / denom)
-        else
-          None
+      case denominatorNotNull =>
+        for
+          x <- (numX / denominatorNotNull.toDouble).asLong; y <- (numY / denominatorNotNull.toDouble).asLong
+        yield
+          (x, y)
 
   def price: Long =
     solve match
@@ -70,3 +71,9 @@ case class Prize(scoreX: Long, scoreY: Long):
 
 object Prize:
   def apply(scoreX: String, scoreY: String) = new Prize(scoreX.toLong, scoreY.toLong)
+
+extension (doubleValue: Double)
+  def asLong: Option[Long] =
+    doubleValue.toLong match
+      case value if value == doubleValue => Some(value)
+      case _ => None
