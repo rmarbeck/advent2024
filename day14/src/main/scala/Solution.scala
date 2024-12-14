@@ -1,54 +1,85 @@
-import scala.annotation.tailrec
+import scala.annotation.{tailrec, targetName}
+
+val shouldDisplayEaster = false
 
 object Solution:
   def run(inputLines: Seq[String]): (String, String) =
 
+    val isTestingData = inputLines.size match
+      case value if value > 12 => false
+      case value => true
+
+    given Dimensions = isTestingData match
+      case false  => Dimensions(101, 103)
+      case true => Dimensions(11, 7)
+
     val guards = inputLines.collect:
       case s"p=${x},${y} v=${vx},${vy}" =>
-        val List(x0, y0, vX, vY): List[Long] = List(x, y, vx, vy).map(_.toLong)
+        val List(x0, y0, vX, vY) = List(x, y, vx, vy).map(_.toInt)
         Guard(Position(x0, y0), Velocity(vX, vY))
 
-    val res = guards.flatMap(_.quadrantAfter(100, 101, 103)).groupMapReduce(identity)(_ => 1)(_ + _).values.tapEach(println).product
+    val part1 = guards.flatMap(_.quadrantAfter(100)).groupMapReduce(identity)(_ => 1)(_ + _).values.product
 
-    val res2 = searchEasterEgg(guards, 101, 103)
+    val part2 = isTestingData match
+      case true => 0
+      case false => searchEasterEgg(guards)
 
-    val result1 = s"$res"
-    val result2 = s"$res2"
+    val result1 = s"$part1"
+    val result2 = s"$part2"
 
     (s"$result1", s"$result2")
 
+case class Dimensions(wideness: Int, tallness: Int)
+
 @tailrec
-def searchEasterEgg(guards: Seq[Guard], nbTilesWide: Int, nbTilesHeight: Int, moves: Int = 1): Int =
-  val inQuadrants = guards.flatMap(_.quadrantAfter(moves, nbTilesWide, nbTilesHeight)).groupMapReduce(identity)(_ => 1)(_ + _).values
-  val all @ List(up, down) = inQuadrants.grouped(2).toList
-  if (all.forall(current => current.head == current.last) && up.head < down.head)
+def areAllDifferent(all: Seq[Guard]): Boolean =
+  all match
+    case Nil => true
+    case head :: tail => ! tail.exists(_.position == head.position) && areAllDifferent(tail)
+
+def display(guards: Seq[Guard])(using dimensions: Dimensions): Unit =
+  val guardsMap = guards.map(g => (g.position.x, g.position.y) -> true).toMap
+  for
+    y <- 0 until dimensions.wideness
+    x <- 0 until dimensions.wideness
+  do
+    if (x == 0)
+      println()
+    guardsMap.get((x, y)) match
+      case Some(true) => print("#")
+      case _ => print(" ")
+
+  println()
+
+@tailrec
+def searchEasterEgg(guards: Seq[Guard], moves: Int = 1)(using dimensions: Dimensions): Int =
+  val updatedGuards = guards.map(_.move)
+  if (areAllDifferent(updatedGuards))
+    if (shouldDisplayEaster)
+      display(updatedGuards)
     moves
   else
-    searchEasterEgg(guards, nbTilesWide, nbTilesHeight, moves + 1)
-
-case class Guard(position: Position, velocity: Velocity):
-  def quadrantAfter(moves: Int, nbTilesWide: Int, nbTilesHeight: Int): Option[Int] =
-    def normalised(pos: Position): Position =
-      val newX = pos.x match
-        case value if value >= 0 => value % nbTilesWide
-        case value => (value % nbTilesWide) match
-          case 0 => 0
-          case other => other + nbTilesWide
-
-      val newY = pos.y match
-        case value if value >= 0 => value % nbTilesHeight
-        case value => (value % nbTilesHeight) match
-          case 0 => 0
-          case other => other + nbTilesHeight
-
-      //println(s"$newX, $newY")
-      Position(newX, newY)
-
-    //println(s"${velocity * moves} : ${position} => ${position + (velocity * moves)} : ${normalised(position + (velocity * moves))}")
-    normalised(position + (velocity * moves)).quadrant(nbTilesWide, nbTilesHeight)
+    searchEasterEgg(updatedGuards, moves + 1)
 
 
-case class Position(x: Long, y: Long):
+case class Guard(position: Position, velocity: Velocity)(using dimensions: Dimensions):
+  def move: Guard = this.copy(position = this.position + velocity).normalised
+
+  private def normalised: Guard =
+    def norm(pos: Int, size: Int): Int =
+      pos % size match
+        case modulo if modulo >= 0 => modulo
+        case modulo => modulo + size
+
+    this.copy(position = Position(norm(position.x, dimensions.wideness), norm(position.y, dimensions.tallness)))
+
+  lazy val quadrant: Option[Int] = this.position.quadrant(dimensions.wideness, dimensions.tallness)
+
+  def quadrantAfter(moves: Int): Option[Int] =
+    this.copy(velocity = this.velocity * moves).move.quadrant
+
+
+case class Position(x: Int, y: Int):
   def quadrant(nbTilesWide: Int, nbTilesHeight: Int): Option[Int] =
     (x, y) match
       case (valX, valY) if valX < nbTilesWide / 2  && valY < nbTilesHeight / 2 => Some(1)
@@ -57,8 +88,10 @@ case class Position(x: Long, y: Long):
       case (valX, valY) if valX > nbTilesWide / 2 && valY > nbTilesHeight / 2 => Some(4)
       case _ => None
 
+  @targetName("add")
   def +(velocity: Velocity): Position = Position(x + velocity.vx, y + velocity.vy)
 
-case class Velocity(vx: Long, vy: Long):
+case class Velocity(vx: Int, vy: Int):
+  @targetName("mult")
   def *(moves: Int): Velocity = Velocity(vx*moves, vy*moves)
 
