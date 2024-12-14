@@ -1,6 +1,6 @@
 import scala.annotation.{tailrec, targetName}
 
-val shouldDisplayEaster = false
+val shouldDisplayEasterEgg = false
 
 object Solution:
   def run(inputLines: Seq[String]): (String, String) =
@@ -31,11 +31,10 @@ object Solution:
 
 case class Dimensions(wideness: Int, tallness: Int)
 
-@tailrec
 def areAllDifferent(all: Seq[Guard]): Boolean =
   all match
     case Nil => true
-    case head :: tail => ! tail.exists(_.position == head.position) && areAllDifferent(tail)
+    case head :: tail => tail.forall(_.position != head.position) && areAllDifferent(tail)
 
 def display(guards: Seq[Guard])(using dimensions: Dimensions): Unit =
   val guardsMap = guards.map(g => (g.position.x, g.position.y) -> true).toMap
@@ -55,7 +54,7 @@ def display(guards: Seq[Guard])(using dimensions: Dimensions): Unit =
 def searchEasterEgg(guards: Seq[Guard], moves: Int = 1)(using dimensions: Dimensions): Int =
   val updatedGuards = guards.map(_.move)
   if (areAllDifferent(updatedGuards))
-    if (shouldDisplayEaster)
+    if (shouldDisplayEasterEgg)
       display(updatedGuards)
     moves
   else
