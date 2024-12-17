@@ -6,7 +6,7 @@ cdv 5 <- (A / 2^ B) -> C
 bxc 5 <- B xor C -> B       <
 adv 3 <- (A / 2^3) -> A
 bxl 7 <- B xor 7 -> B       < 5
-out 5 <- output register B
+out 5 <- output register B % 8
 jnz 0
 
 
