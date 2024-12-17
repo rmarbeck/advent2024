@@ -8,19 +8,18 @@ object Solution:
      val locations = inputLines.zipWithIndex.foldLeft(Nil: List[Summit], (0, 0), (0, 0)):
         case (total, (line, y)) =>
           val partial = line.zipWithIndex.foldLeft((Nil, None, None): (List[Summit], Option[(Int, Int)], Option[(Int, Int)])):
-            case (acc, ('.', x)) => (List(Up, Down, Right, Left).map(Summit(x, y, _)), acc._2, acc._3)
-            case (acc, ('S', x)) => (List(Up, Down, Right, Left).map(Summit(x, y, _)), Some((x, y)), acc._3)
-            case (acc, ('E', x)) => (List(Up, Down, Right, Left).map(Summit(x, y, _)), acc._2, Some((x, y)))
+            case (acc, ('.', x)) => (List(Up, Down, Right, Left).map(Summit(x, y, _)) ::: acc._1, acc._2, acc._3)
+            case (acc, ('S', x)) => (List(Up, Down, Right, Left).map(Summit(x, y, _)) ::: acc._1, Some((x, y)), acc._3)
+            case (acc, ('E', x)) => (List(Up, Down, Right, Left).map(Summit(x, y, _)) ::: acc._1, acc._2, Some((x, y)))
             case (acc, _) => acc
           (partial._1 ::: total._1, partial._2.getOrElse(total._2), partial._3.getOrElse(total._3))
 
     val start = locations._2
     val end = locations._3
 
+    val result = Dijkstra.solve(asGraphPart1(locations._2, locations._3, locations._1), Summit(start._1, start._2, Dir.Right), List(Up, Down, Right, Left).map(Summit(end._1, end._2, _)))
 
-    Dijkstra.solve(asGraphPart1(locations._2, locations._3, locations._1), Summit(start._1, start._2, Dir.Up), List(Up, Down, Right, Left).map(Summit(end._1, end._2, _)))
-
-    val result1 = s""
+    val result1 = s"${result}"
     val result2 = s""
 
     (s"$result1", s"$result2")
@@ -31,6 +30,9 @@ enum Dir:
   case Right
   case Left
 
+  def orthogonal: Seq[Dir] = this match
+    case Up | Down => Seq(Right, Left)
+    case Left | Right => Seq(Up, Down)
 
 
 case class Summit(x: Int, y: Int, dir: Dir):
@@ -44,11 +46,11 @@ case class Summit(x: Int, y: Int, dir: Dir):
       case Right => this.copy(x = x + 1)
 
   def next: Seq[Summit] =
-    this.step +: Dir.values.filterNot(_ == dir).map(newDir => this.copy(dir = newDir)).toSeq
+    this.step +: this.dir.orthogonal.map(newDir => this.copy(dir = newDir))
 
   def weightBetween(other: Summit): Long =
     (other.x - x, other.y - y) match
-      case (0, 0) => 1001
+      case (0, 0) => 1000
       case _ => 1
 
 class GraphFromArray(val elements: Seq[Summit])(validNeighbours: Summit => Seq[Summit]) extends Graph[Summit]:
@@ -61,7 +63,4 @@ class GraphFromArray(val elements: Seq[Summit])(validNeighbours: Summit => Seq[S
       possibleNeighbours.contains(summitWithData.getElement)
 
 private def asGraphPart1(start: (Int, Int), end: (Int, Int), locations: Seq[Summit]): GraphFromArray =
-  //given start: Summit = Summit(start._1, start._2, Dir.Up)
-  //given endChars: List[Summit] = List(Up, Down, Right, Left).map(Summit(end._1, end._2, _))
-
   GraphFromArray(locations)((summit: Summit) => summit.next)
