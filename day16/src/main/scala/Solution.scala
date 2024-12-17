@@ -1,26 +1,24 @@
-type Locations = Seq[Location]
+import Dir.{Down, Left, Right, Up}
 
 object Solution:
   def run(inputLines: Seq[String]): (String, String) =
 
     import Dir._
-    val locations =
-      (inputLines.zipWithIndex.flatMap:
-        case (line, y) => line.zipWithIndex.collect:
-          case ('.', x) => List(Up, Down, Right, Left).map(Location(x, y, _, false, false))
-          case ('S', x) => List(Up, Down, Right, Left).map(Location(x, y, _, true, false))
-          case ('E', x) => List(Up, Down, Right, Left).map(Location(x, y, _, false, true))
-        .flatten
-        )
 
-    println(locations.find(_.isEnd))
-    println(locations.find(_.isStart))
+     val locations = inputLines.zipWithIndex.foldLeft(Nil: List[Summit], (0, 0), (0, 0)):
+        case (total, (line, y)) =>
+          val partial = line.zipWithIndex.foldLeft((Nil, None, None): (List[Summit], Option[(Int, Int)], Option[(Int, Int)])):
+            case (acc, ('.', x)) => (List(Up, Down, Right, Left).map(Summit(x, y, _)), acc._2, acc._3)
+            case (acc, ('S', x)) => (List(Up, Down, Right, Left).map(Summit(x, y, _)), Some((x, y)), acc._3)
+            case (acc, ('E', x)) => (List(Up, Down, Right, Left).map(Summit(x, y, _)), acc._2, Some((x, y)))
+            case (acc, _) => acc
+          (partial._1 ::: total._1, partial._2.getOrElse(total._2), partial._3.getOrElse(total._3))
 
-    //
-    // Code is here
-    //
+    val start = locations._2
+    val end = locations._3
 
 
+    Dijkstra.solve(asGraphPart1(locations._2, locations._3, locations._1), Summit(start._1, start._2, Dir.Up), List(Up, Down, Right, Left).map(Summit(end._1, end._2, _)))
 
     val result1 = s""
     val result2 = s""
@@ -33,31 +31,37 @@ enum Dir:
   case Right
   case Left
 
-case class Location(x: Int, y: Int, dir: Dir, isStart: Boolean, isEnd: Boolean):
+
+
+case class Summit(x: Int, y: Int, dir: Dir):
   import Dir._
-  private def step: Location =
+
+  private def step: Summit =
     dir match
       case Up => this.copy(y = y - 1)
       case Down => this.copy(y = y + 1)
       case Left => this.copy(x = x - 1)
       case Right => this.copy(x = x + 1)
 
-  def next: Seq[Location] =
-    this.step +: Dir.values.filterNot(_ == dir).map(newDir => this.copy(dir = newDir))
-    
-  def toSummit: Summit = Summit(x, y, dir)
-  def weightBetween(other: Location): Long =
-    (other.x - x, other.y - y,  dir, other.dir) match
-      case (diffX, diffY, _, _) if diffX > 1 || diffY > 1 => throw Exception("Not supported")
-      case (0, 0, Up | Down, Left | Right) => 1001
-      case (0, 0, Left | Right, Up | Down) => 1001
-      case (1 | -1, 0, Up | Down, Up | Down) => 1001
-      case (1, 0, Right, Right) => 1
-      case (-1, 0, Left, Left) => 1
-      case (0, 1 | - 1, Right | Left, Right | Left) => 1001
-      case (0, -1 , Up, Up) => 1
-      case (0, 1, Down, Down) => 1
-      case (1 | -1, 0, _, _) => throw Exception("Not supported")
+  def next: Seq[Summit] =
+    this.step +: Dir.values.filterNot(_ == dir).map(newDir => this.copy(dir = newDir)).toSeq
 
+  def weightBetween(other: Summit): Long =
+    (other.x - x, other.y - y) match
+      case (0, 0) => 1001
+      case _ => 1
 
+class GraphFromArray(val elements: Seq[Summit])(validNeighbours: Summit => Seq[Summit]) extends Graph[Summit]:
+  override def getElements: Seq[Summit] = elements
+  override def weightBetween(first: Data[Summit], second: Data[Summit]): Long =
+    first.getElement.weightBetween(second.getElement)
+  override def getNeighboursOfIn(current: Data[Summit], potentialNeighbours: Seq[Data[Summit]]): Seq[Data[Summit]] =
+    val possibleNeighbours = validNeighbours.apply(current.getElement)
+    potentialNeighbours.filter: summitWithData =>
+      possibleNeighbours.contains(summitWithData.getElement)
 
+private def asGraphPart1(start: (Int, Int), end: (Int, Int), locations: Seq[Summit]): GraphFromArray =
+  //given start: Summit = Summit(start._1, start._2, Dir.Up)
+  //given endChars: List[Summit] = List(Up, Down, Right, Left).map(Summit(end._1, end._2, _))
+
+  GraphFromArray(locations)((summit: Summit) => summit.next)
