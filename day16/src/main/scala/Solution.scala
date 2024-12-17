@@ -5,22 +5,18 @@ object Solution:
 
     import Dir._
 
-     val locations = inputLines.zipWithIndex.foldLeft(Nil: List[Summit], (0, 0), (0, 0)):
+     val (locations, start, end) = inputLines.zipWithIndex.foldLeft(Nil: List[Summit], (0, 0), (0, 0)):
         case (total, (line, y)) =>
+          def addSummit(accumulator: List[Summit])(x: Int) = List(Up, Down, Right, Left).map(Summit(x, y, _)) ::: accumulator
           val partial = line.zipWithIndex.foldLeft((Nil, None, None): (List[Summit], Option[(Int, Int)], Option[(Int, Int)])):
-            case (acc, ('.', x)) => (List(Up, Down, Right, Left).map(Summit(x, y, _)) ::: acc._1, acc._2, acc._3)
-            case (acc, ('S', x)) => (List(Up, Down, Right, Left).map(Summit(x, y, _)) ::: acc._1, Some((x, y)), acc._3)
-            case (acc, ('E', x)) => (List(Up, Down, Right, Left).map(Summit(x, y, _)) ::: acc._1, acc._2, Some((x, y)))
+            case (acc, ('.', x)) => (addSummit(acc._1)(x), acc._2, acc._3)
+            case (acc, ('S', x)) => (addSummit(acc._1)(x), Some((x, y)), acc._3)
+            case (acc, ('E', x)) => (addSummit(acc._1)(x), acc._2, Some((x, y)))
             case (acc, _) => acc
           (partial._1 ::: total._1, partial._2.getOrElse(total._2), partial._3.getOrElse(total._3))
 
-    val start = locations._2
-    val end = locations._3
 
-    val result = Dijkstra.solve(asGraphPart1(locations._2, locations._3, locations._1), Summit(start._1, start._2, Dir.Right), List(Up, Down, Right, Left).map(Summit(end._1, end._2, _)))
-
-    val result1 = s"${result}"
-    val result2 = s""
+    val (result1, result2) = Dijkstra.solve(asGraph(start, end, locations), Summit(start._1, start._2, Dir.Right), List(Up, Down, Right, Left).map(Summit(end._1, end._2, _)))
 
     (s"$result1", s"$result2")
 
@@ -53,6 +49,8 @@ case class Summit(x: Int, y: Int, dir: Dir):
       case (0, 0) => 1000
       case _ => 1
 
+  override def toString: String = s"$x,$y,$dir"
+
 class GraphFromArray(val elements: Seq[Summit])(validNeighbours: Summit => Seq[Summit]) extends Graph[Summit]:
   override def getElements: Seq[Summit] = elements
   override def weightBetween(first: Data[Summit], second: Data[Summit]): Long =
@@ -62,5 +60,5 @@ class GraphFromArray(val elements: Seq[Summit])(validNeighbours: Summit => Seq[S
     potentialNeighbours.filter: summitWithData =>
       possibleNeighbours.contains(summitWithData.getElement)
 
-private def asGraphPart1(start: (Int, Int), end: (Int, Int), locations: Seq[Summit]): GraphFromArray =
+private def asGraph(start: (Int, Int), end: (Int, Int), locations: Seq[Summit]): GraphFromArray =
   GraphFromArray(locations)((summit: Summit) => summit.next)
