@@ -23,9 +23,9 @@ object Solution:
 
 
 
-    (1 to 276655).map(aValue => s" $aValue\t${aValue.toBinaryString} => ${runDevice(prog, Registers(aValue, 0, 0), prog)}").filter(_.contains(" => 2,4,1,2,7,5")).foreach(println)
+    //(1 to 276655).map(aValue => s" $aValue\t${aValue.toBinaryString} => ${runDevice(prog, Registers(aValue, 0, 0), prog)}").filter(_.contains(" => 2,4,1,2,7,5")).foreach(println)
 
-    val result2 = 0//test(prog, 1, toFind)
+    val result2 = search(toFind, 1, 1, Nil, prog)//test(prog, 1, toFind)
 
     (s"$result1", s"$result2")
 
@@ -42,9 +42,14 @@ enum instructions:
 import instructions._
 
 def search(toFind: List[Int], current: Int, factor: Int = 1, found: List[Int], program: List[(Instruction, Operand)]): List[Int] =
-  runDevice(program, Registers(current, 0, 0), program) match
-    case output if output == toFind.take(found.length + 1).mkString(",") => search(toFind, current + factor, 8, current :: found, program)
-    case _ => search(toFind, current + factor, factor, current :: found, program)
+  if (found.length == 3)
+    found
+  else
+   runDevice(program, Registers(current, 0, 0), program) match
+      case output if output == toFind.take(found.length + 1).mkString(",") =>
+        val newFactor = Math.pow(8, found.length + 1).toInt
+        search(toFind, current + newFactor, newFactor, current :: found, program)
+      case _ => search(toFind, current + factor, factor, found, program)
 
 
 @tailrec
