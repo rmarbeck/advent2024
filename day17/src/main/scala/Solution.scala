@@ -15,23 +15,16 @@ object Solution:
         case s"Program: $values" => values.split(",").map(_.toInt).grouped(2).toList.collect:
           case Array(first, second) => (Instruction(first), Operand(second))
 
-
     val result1 = runDevice(prog, registers, prog)
     val toFind =
       prog.flatMap:
         case (inst, op) => List(inst.opcode, op.operandCode)
 
+    val (result2, _) = toFind.reverse.foldLeft((0L, Nil): (Long, List[Int])):
+      case (acc, digit) =>
+        ((acc._1 to acc._1 + 64).find(a => runDevice(prog, Registers(a, 0, 0), prog).split(",").map(_.toInt).toList == (digit :: acc._2)).get * 8, digit :: acc._2)
 
-    //(57600 to 57620).map(aValue => s" $aValue\t${aValue.toBinaryString} => ${runDevice(prog, Registers(aValue, 0, 0), prog)}").filter(_.contains(" => 2,4")).foreach(println)
-
-
-    //(0 to 128).map(aValue => s" $aValue\t${aValue.toBinaryString} => ${runDevice(prog, Registers(aValue, 0, 0), prog)}").filter(_.contains(" => 0")).foreach(println)
-    //(0 to 128).map(aValue => s" $aValue\t${aValue.toBinaryString} => ${runDevice(prog, Registers(aValue, 0, 0), prog)}").filter(_.contains(" => 1")).foreach(println)
-    //(0 to 128).map(aValue => s" $aValue\t${aValue.toBinaryString} => ${runDevice(prog, Registers(aValue, 0, 0), prog)}").filter(_.contains(" => 2")).foreach(println)
-
-    val result2 = search(toFind, 0, 1, Nil, prog)//test(prog, 1, toFind)
-
-    (s"$result1", s"$result2")
+    (s"$result1", s"${result2 / 8}")
 
 enum instructions:
   case ADV
@@ -45,73 +38,16 @@ enum instructions:
 
 import instructions._
 
-def search(toFind: List[Int], current: Int, factor: Int = 1, found: List[Int], program: List[(Instruction, Operand)]): List[Int] =
-  if (found.length == 7)
-    found
-  else
-    val test = runDevice(program, Registers(current, 0, 0), program)
-    runDevice(program, Registers(current, 0, 0), program) match
-      case output if output.split(",").map(_.toInt).take(found.length + 1).toList == toFind.take(found.length + 1) =>
-        val newFactor = 8
-        search(toFind, current + newFactor, newFactor, current :: found, program)
-      case _ => search(toFind, current + factor, factor, found, program)
-
-
-@tailrec
-def test(program: List[(Instruction, Operand)], aValue: Int, toFind: List[Int]): Int =
-  runDevice2(program, Registers(aValue, 0, 0), program, toFind) match
-    case true => aValue
-    case false => test(program, aValue + 1, toFind)
-
-def canMatch(output: List[Int], toFind: List[Int]): (Boolean, Boolean) =
-  if (output.reverse == toFind)
-    (true, true)
-  else if (toFind.startsWith(output.reverse))
-    (true, false)
-  else
-    (false, false)
-
-
-@tailrec
-def runDevice2(program: List[(Instruction, Operand)], registers: Registers, fullProgram: List[(Instruction, Operand)], toFind: List[Int], output: List[Int] = Nil): Boolean =
-  canMatch(output, toFind) match
-    case (false, _) => false
-    case (true, true) => true
-    case _ =>
-      given Registers = registers
-      program match
-        case Nil => canMatch(output, toFind)._2
-        case (currentInst, currentOperand) :: tail =>
-          instructions.fromOrdinal(currentInst.opcode) match
-            case ADV =>
-              runDevice2(tail, registers.setA((registers.a / Math.pow(2, currentOperand.get)).toInt), fullProgram, toFind, output)
-            case BXL =>
-              runDevice2(tail, registers.setB(registers.b ^ currentOperand.operandCode), fullProgram, toFind, output)
-            case BST =>
-              runDevice2(tail, registers.setB(currentOperand.get % 8), fullProgram, toFind, output)
-            case JNZ =>
-              registers.a match
-                case 0 => runDevice2(tail, registers, fullProgram, toFind, output)
-                case other =>
-                  runDevice2(fullProgram.drop(currentOperand.operandCode / 2), registers, fullProgram, toFind, output)
-            case BXC =>
-              runDevice2(tail, registers.setB(registers.b ^ registers.c), fullProgram, toFind, output)
-            case OUT =>
-              runDevice2(tail, registers, fullProgram, toFind, currentOperand.get % 8 :: output)
-            case BDV =>
-              runDevice2(tail, registers.setB((registers.a / Math.pow(2, currentOperand.get)).toInt), fullProgram, toFind, output)
-            case CDV =>
-              runDevice2(tail, registers.setC((registers.a / Math.pow(2, currentOperand.get)).toInt), fullProgram, toFind, output)
-
 @tailrec
 def runDevice(program: List[(Instruction, Operand)], registers: Registers, fullProgram: List[(Instruction, Operand)], output: List[Int] = Nil): String =
+  def cutA(currentOperand: Operand): Long = (registers.a / Math.pow(2, currentOperand.get.toInt)).toLong
   given Registers = registers
   program match
     case Nil => output.reverse.mkString(",")
     case (currentInst, currentOperand) :: tail =>
       instructions.fromOrdinal(currentInst.opcode) match
         case ADV =>
-          runDevice(tail, registers.setA((registers.a / Math.pow(2, currentOperand.get)).toInt), fullProgram, output)
+          runDevice(tail, registers.setA(cutA(currentOperand)), fullProgram, output)
         case BXL =>
           runDevice(tail, registers.setB(registers.b ^ currentOperand.operandCode), fullProgram, output)
         case BST =>
@@ -124,16 +60,16 @@ def runDevice(program: List[(Instruction, Operand)], registers: Registers, fullP
         case BXC =>
           runDevice(tail, registers.setB(registers.b ^ registers.c), fullProgram, output)
         case OUT =>
-          runDevice(tail, registers, fullProgram, currentOperand.get % 8 :: output)
+          runDevice(tail, registers, fullProgram, (currentOperand.get % 8).toInt :: output)
         case BDV =>
-          runDevice(tail, registers.setB((registers.a / Math.pow(2, currentOperand.get)).toInt), fullProgram, output)
+          runDevice(tail, registers.setB(cutA(currentOperand)), fullProgram, output)
         case CDV =>
-          runDevice(tail, registers.setC((registers.a / Math.pow(2, currentOperand.get)).toInt), fullProgram, output)
+          runDevice(tail, registers.setC(cutA(currentOperand)), fullProgram, output)
 
 case class Instruction(opcode: Int)
 
 case class Operand(operandCode: Int):
-  def get(using registers: Registers): Int =
+  def get(using registers: Registers): Long =
     operandCode match
       case 0 | 1 | 2 | 3 => operandCode
       case 4 => registers.a
@@ -141,7 +77,7 @@ case class Operand(operandCode: Int):
       case 6 => registers.c
       case 7 => throw Exception("Reserved")
 
-case class Registers(a: Int, b: Int, c: Int):
-  def setA(newValue: Int): Registers = this.copy(a = newValue)
-  def setB(newValue: Int): Registers = this.copy(b = newValue)
-  def setC(newValue: Int): Registers = this.copy(c = newValue)
+case class Registers(a: Long, b: Long, c: Long):
+  def setA(newValue: Long): Registers = this.copy(a = newValue)
+  def setB(newValue: Long): Registers = this.copy(b = newValue)
+  def setC(newValue: Long): Registers = this.copy(c = newValue)
