@@ -1,6 +1,3 @@
-import scala.annotation.tailrec
-import scala.collection.mutable
-
 type Towels = Seq[Towel]
 
 object Solution:
@@ -16,36 +13,29 @@ object Solution:
     (s"${result1.length}", s"$result2")
 
 case class Towel(stripes: String):
-  lazy val length = stripes.length
-  override def toString: String = stripes
+  private lazy val length = stripes.length
 
-  def dropBy(design: String): Option[String] =
-    design.startsWith(stripes) match
-      case true => Some(design.drop(length))
-      case false => None
-
-
-class Cache:
-  given Cache = this
-  private val isValidCache: mutable.Map[String, Boolean] = mutable.Map()
-  def isValidCached(input: String)(using towels: Towels): Boolean =
-    isValidCache.getOrElseUpdate(input, isValid(List(input)))
-
-  private val nbOfWaysCache: mutable.Map[String, Long] = mutable.Map()
-  def waysCached(input: String)(using towels: Towels): Long =
-    nbOfWaysCache.getOrElseUpdate(input, successfullWays(input))
+  def dropBy(design: String): Option[String] = Option.when(design.startsWith(stripes))(design.drop(length))
 
 def isValid(remaining: Seq[String])(using towels: Towels, cache: Cache): Boolean =
   remaining match
     case Nil => false
-    case head :: tail =>
-      if towels.exists(_.stripes == head) then
-        true
-      else
-        towels.flatMap(_.dropBy(head)).exists(cache.isValidCached)
+    case "" :: tail => true
+    case head :: tail => towels.flatMap(_.dropBy(head)).exists(cache.isValidCached)
 
 def successfullWays(subDesign: String)(using towels: Towels, cache: Cache): Long =
   subDesign match
     case "" => 1
-    case _ =>
-      towels.flatMap(_.dropBy(subDesign)).filter(current => current.isBlank || cache.isValidCached(current)).map(cache.waysCached).sum
+    case _ => towels.flatMap(_.dropBy(subDesign)).filter(cache.isValidCached).map(cache.waysCached).sum
+
+class Cache:
+  given Cache = this
+  import scala.collection.mutable
+  private val isValidCache: mutable.Map[String, Boolean] = mutable.Map()
+  private val nbOfWaysCache: mutable.Map[String, Long] = mutable.Map()
+
+  def isValidCached(input: String)(using towels: Towels): Boolean =
+    isValidCache.getOrElseUpdate(input, isValid(List(input)))
+
+  def waysCached(input: String)(using towels: Towels): Long =
+    nbOfWaysCache.getOrElseUpdate(input, successfullWays(input))
