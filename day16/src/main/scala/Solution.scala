@@ -1,11 +1,16 @@
 import Dir.{Down, Left, Right, Up}
 
+import scala.annotation.tailrec
+import scala.collection.immutable.TreeSet
+
+type Goals = (Summit, List[Summit])
+
 object Solution:
   def run(inputLines: Seq[String]): (String, String) =
 
     import Dir._
 
-     val (locations, start, end) = inputLines.zipWithIndex.foldLeft(Nil: List[Summit], (0, 0), (0, 0)):
+     val (_, start, end) = inputLines.zipWithIndex.foldLeft(Nil: List[Summit], (0, 0), (0, 0)):
         case (total, (line, y)) =>
           def addSummit(accumulator: List[Summit])(x: Int) = List(Up, Down, Right, Left).map(Summit(x, y, _)) ::: accumulator
           val partial = line.zipWithIndex.foldLeft((Nil, None, None): (List[Summit], Option[(Int, Int)], Option[(Int, Int)])):
@@ -15,8 +20,17 @@ object Solution:
             case (acc, _) => acc
           (partial._1 ::: total._1, partial._2.getOrElse(total._2), partial._3.getOrElse(total._3))
 
+    val grid = inputLines.map(_.toCharArray).toArray
+    val forbidden = (for
+      y <- inputLines.indices; x <- inputLines.head.indices
+      if grid(y)(x) == '#'
+    yield
+      List(Up, Down, Right, Left).map(Summit(x, y, _))
+      ).flatten
 
-    val (result1, result2) = Dijkstra.solve(asGraph(start, end, locations), Summit(start._1, start._2, Dir.Right), List(Up, Down, Right, Left).map(Summit(end._1, end._2, _)))
+    given Goals = (Summit.apply(start._1, start._2, Dir.Right), List(Up, Down, Right, Left).map(Summit(end._1, end._2, _)))
+
+    val (result1, result2) = solveMaze(forbidden).get
 
     (s"$result1", s"$result2")
 
@@ -32,6 +46,7 @@ enum Dir:
 
 
 case class Summit(x: Int, y: Int, dir: Dir):
+  def withoutDir: (Int, Int) = (x, y)
   import Dir._
 
   private def step: Summit =
@@ -51,14 +66,26 @@ case class Summit(x: Int, y: Int, dir: Dir):
 
   override def toString: String = s"$x,$y,$dir"
 
-class GraphFromArray(val elements: Seq[Summit])(validNeighbours: Summit => Seq[Summit]) extends Graph[Summit]:
-  override def getElements: Seq[Summit] = elements
-  override def weightBetween(first: Data[Summit], second: Data[Summit]): Long =
-    first.getElement.weightBetween(second.getElement)
-  override def getNeighboursOfIn(current: Data[Summit], potentialNeighbours: Seq[Data[Summit]]): Seq[Data[Summit]] =
-    val possibleNeighbours = validNeighbours.apply(current.getElement)
-    potentialNeighbours.filter: summitWithData =>
-      possibleNeighbours.contains(summitWithData.getElement)
+object Summit:
+  given orderingSummit: Ordering[Summit] = Ordering.by(s => (s.x, s.y, s.dir.ordinal))
+  given orderingSummits: Ordering[List[Summit]] = Ordering.by(_.toString)
 
-private def asGraph(start: (Int, Int), end: (Int, Int), locations: Seq[Summit]): GraphFromArray =
-  GraphFromArray(locations)((summit: Summit) => summit.next)
+def solveMaze(forbidden: Seq[Summit])(using goals: Goals): Option[(Long, Long)] =
+  solver(TreeSet((0, goals._1, List(goals._1))), forbidden.map(_ -> true).toMap, goals._2)
+
+@tailrec
+def solver(toExplore: TreeSet[(Long, Summit, List[Summit])], forbidden: Map[Summit, Boolean], toReach: List[Summit], shortestDistance: Option[Long] = None, shortestPaths: Seq[List[(Int, Int)]] = Nil): Option[(Long, Long)] =
+  toExplore match
+    case empty if empty.isEmpty => None
+    case notEmpty =>
+      notEmpty.head match
+        case (distance, summit, list) if toReach.contains(summit) =>
+          shortestDistance match
+            case None =>
+              solver(toExplore.tail, forbidden, toReach, Some(distance), (summit.withoutDir :: list.map(_.withoutDir)) +: Nil)
+            case Some(value) if value == distance =>
+              solver(toExplore.tail, forbidden, toReach, shortestDistance, (summit.withoutDir :: list.map(_.withoutDir)) +: shortestPaths)
+            case Some(value) if value < distance => Some((value, shortestPaths.flatten.distinct.length))
+            case _ => throw Exception("Should not happen")
+        case (distance, summit, list) =>
+          solver(toExplore.tail ++ summit.next.filterNot(forbidden.contains).map(sum => (distance + summit.weightBetween(sum), sum, sum :: list)), forbidden + (summit -> true), toReach, shortestDistance, shortestPaths)
