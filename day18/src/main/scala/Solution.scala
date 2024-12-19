@@ -1,91 +1,73 @@
-import scala.annotation.tailrec
+import scala.annotation.{tailrec, targetName}
 import scala.collection.immutable.TreeSet
 import scala.util.Sorting
 
 type Places = Map[(Int, Int), Boolean]
 
+type Dimension = Int
+type Goals = (Summit, Summit)
+
 object Solution:
   def run(inputLines: Seq[String]): (String, String) =
 
-    val (size, nbBytes) = inputLines.size match
+    val (size: Dimension, nbBytes) = inputLines.size match
       case 25 => (6, 12)
       case _ => (70, 1024)
 
+    given Dimension = size
+    given Goals = (Summit(0, 0), Summit(size, size))
+
     val (fallenBytes, toFallBytes) =
       inputLines.collect:
-        case s"$x,$y" => (x.toInt, y.toInt)
+        case s"$x,$y" => Summit(x.toInt, y.toInt)
       .splitAt(nbBytes)
 
-    val toAuthorizedPlacesAsMap: Seq[(Int, Int)] => Places =
-      blocked => (for
-        x <- 0 to size; y <- 0 to size
-        if ! blocked.contains(x, y)
-      yield
-        (x, y) -> true
-        ).toMap
+    val (scorePart1, validPath) = solveMaze(fallenBytes) match
+      case Some(result) => result
+      case None => throw Exception("No result found for part 1")
 
-    val authorizedPlacesPart1 = toAuthorizedPlacesAsMap(fallenBytes)
+    val result2 = solvePart2(toFallBytes, validPath,fallenBytes) match
+        case Some(result) => result
+        case None => throw Exception("No result found for part 2")
 
-    val (start, end) = (Summit(0, 0), List(Summit(size, size)))
-
-    import Ordering2.given
-
-    val (scorePart1, _) = solve(TreeSet((0, start, Nil)), fallenBytes.map(Summit), end.head, size)// Dijkstra.solve(asGraph(authorizedPlacesPart1), start, end).get
-
-    val authorizedPlacesPart2 = toAuthorizedPlacesAsMap(fallenBytes ++ toFallBytes)
-
-    val (_, result2Option, _) = toFallBytes.reverse.foldLeft((authorizedPlacesPart2, None: Option[(Int, Int)], false)):
-      case ((authorizedPlaces, previous, false), newByteToRemove) =>
-        Dijkstra.solve(asGraph(authorizedPlaces, size), start, end) match
-          case Some(value) => (authorizedPlaces, previous, true)
-          case None => (authorizedPlaces + (newByteToRemove -> true), Some(newByteToRemove), false)
-      case (acc, _) => acc
-
-    val result2 = result2Option.map(_.toString).getOrElse("(?)").drop(1).dropRight(1)
-
-    (s"${scorePart1}", s"$result2")
+    (s"$scorePart1", s"$result2")
 
 case class Summit(x: Int, y: Int):
-  def next(maxSize: Int): Seq[Summit] =
-    List((0, 1), (0, -1), (1, 0), (-1, 0)).map((xDiff, yDiff) => Summit(x + xDiff, y + yDiff)).filter:
-      case Summit(x, y) => x >= 0 && y >=0 && x <= maxSize && y <= maxSize
+  @targetName("addTuple")
+  def +(drift: (Int, Int)): Summit = Summit(x+drift._1, y+drift._2)
+  def next(using dimension: Dimension): Seq[Summit] =
+    List((0, 1), (0, -1), (1, 0), (-1, 0)).map(this + _).filter:
+      case Summit(x, y) => x >= 0 && y >=0 && x <= dimension && y <= dimension
 
+  override def toString: String = s"$x,$y"
 
-class GraphFromArray(val elements: Seq[Summit])(validNeighbours: Summit => Seq[Summit]) extends Graph[Summit]:
-  override def getElements: Seq[Summit] = elements
-  override def weightBetween(first: Data[Summit], second: Data[Summit]): Long = 1L
-  override def getNeighboursOfIn(current: Data[Summit], potentialNeighbours: Seq[Data[Summit]]): Seq[Data[Summit]] =
-    val possibleNeighbours = validNeighbours.apply(current.getElement)
-    potentialNeighbours.filter: summitWithData =>
-      possibleNeighbours.contains(summitWithData.getElement)
-
-
-private def asGraph(authorizedPlaces: Map[(Int, Int), Boolean], size: Int): GraphFromArray =
-  val locations = authorizedPlaces.keys.map(Summit(_, _)).toSeq
-  GraphFromArray(locations)((summit: Summit) => summit.next(size))
-
-
-object Ordering2:
-    /*given tsOrdering: Ordering[(Int, Summit, List[Summit])] with
-      override def compare(x: (Int, Summit, List[Summit]), y: (Int, Summit, List[Summit])): Int = x._1.compare(y._1)*/
-    given orderingSummit: Ordering[Summit] with
-      override def compare(first: Summit, second: Summit): Int =
-        first.x.compare(second.x) match
-          case 0 => first.y.compare(second.y)
-          case value => value
-
-    import math.Ordered.orderingToOrdered
-    given orderingSummits: Ordering[List[Summit]] with
-      override def compare(first: List[Summit], second: List[Summit]): Int =
-        first.headOption.compare(second.headOption)
+object Summit:
+  given orderingSummit: Ordering[Summit] = Ordering.by(s => (s.x, s.y))
+  given orderingSummits: Ordering[List[Summit]] = Ordering.by(_.headOption)
 
 @tailrec
-def solve(toExplore: TreeSet[(Int, Summit, List[Summit])], forbidden: Seq[Summit], toReach: Summit, maxSize: Int): (Int, List[Summit]) =
-  toExplore.head match
-    case (distance, summit, list) if summit == toReach => (distance, list)
-    case (distance, summit, list) =>
-      val toAdd = summit.next(maxSize).filterNot(forbidden.contains)
-      val asSet = (summit.next(maxSize).filterNot(forbidden.contains).map(sum => (distance + 1, sum, sum :: list))).toSet
-      val newSet= toExplore.tail ++ (summit.next(maxSize).filterNot(forbidden.contains).map(sum => (distance + 1, sum, sum :: list))).toSet
-      solve(toExplore.tail ++ (summit.next(maxSize).filterNot(forbidden.contains).map(sum => (distance + 1, sum, sum :: list))).toSet, forbidden, toReach, maxSize)
+def solvePart2(bytesToAdd: Seq[Summit], currentValidPath: List[Summit], forbidden: Seq[Summit])(using goals: Goals, dimension: Dimension): Option[Summit] =
+  bytesToAdd match
+    case Nil => None
+    case head :: tail =>
+      currentValidPath.contains(head) match
+        case false => solvePart2(tail, currentValidPath, head +: forbidden)
+        case true =>
+          solveMaze(head +: forbidden) match
+            case None => Some(head)
+            case Some(validResult) => solvePart2(tail, validResult._2, head +: forbidden)
+
+
+def solveMaze(forbidden: Seq[Summit])(using goals: Goals, dimension: Dimension): Option[(Int, List[Summit])] =
+  solver(TreeSet((0, goals._1, Nil)), forbidden.map(_ -> true).toMap, goals._2)
+
+@tailrec
+def solver(toExplore: TreeSet[(Int, Summit, List[Summit])], forbidden: Map[Summit, Boolean], toReach: Summit)(using dimension: Dimension): Option[(Int, List[Summit])] =
+  toExplore match
+    case empty if empty.isEmpty => None
+    case notEmpty =>
+      notEmpty.head match
+        case (distance, summit, list) if summit == toReach => Some((distance, list))
+        case (distance, summit, list) =>
+          solver(toExplore.tail ++ summit.next.filterNot(forbidden.contains).map(sum => (distance + 1, sum, sum :: list)), forbidden + (summit -> true), toReach)
 
