@@ -55,7 +55,7 @@ def solvePart2(bytesToAdd: Seq[Summit], currentValidPath: List[Summit], forbidde
         case true =>
           solveMaze(head +: forbidden) match
             case None => Some(head)
-            case Some(validResult) => solvePart2(tail, validResult._2, head +: forbidden)
+            case Some(_, newValidPath) => solvePart2(tail, newValidPath, head +: forbidden)
 
 
 def solveMaze(forbidden: Seq[Summit])(using goals: Goals, dimension: Dimension): Option[(Int, List[Summit])] =
