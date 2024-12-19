@@ -71,10 +71,10 @@ object Summit:
   given orderingSummits: Ordering[List[Summit]] = Ordering.by(_.toString)
 
 def solveMaze(forbidden: Seq[Summit])(using goals: Goals): Option[(Long, Long)] =
-  solver(TreeSet((0, goals._1, List(goals._1))), forbidden.map(_ -> true).toMap, goals._2)
+  solver(TreeSet((0, goals._1, List(goals._1))), forbidden.toSet, goals._2)
 
 @tailrec
-def solver(toExplore: TreeSet[(Long, Summit, List[Summit])], forbidden: Map[Summit, Boolean], toReach: List[Summit], shortestDistance: Option[Long] = None, shortestPaths: Seq[List[(Int, Int)]] = Nil): Option[(Long, Long)] =
+def solver(toExplore: TreeSet[(Long, Summit, List[Summit])], forbidden: Set[Summit], toReach: List[Summit], shortestDistance: Option[Long] = None, shortestPaths: Seq[List[(Int, Int)]] = Nil): Option[(Long, Long)] =
   toExplore match
     case empty if empty.isEmpty => None
     case notEmpty =>
@@ -88,4 +88,4 @@ def solver(toExplore: TreeSet[(Long, Summit, List[Summit])], forbidden: Map[Summ
             case Some(value) if value < distance => Some((value, shortestPaths.flatten.distinct.length))
             case _ => throw Exception("Should not happen")
         case (distance, summit, list) =>
-          solver(toExplore.tail ++ summit.next.filterNot(forbidden.contains).map(sum => (distance + summit.weightBetween(sum), sum, sum :: list)), forbidden + (summit -> true), toReach, shortestDistance, shortestPaths)
+          solver(toExplore.tail ++ summit.next.filterNot(forbidden.contains).map(sum => (distance + summit.weightBetween(sum), sum, sum :: list)), forbidden + summit, toReach, shortestDistance, shortestPaths)
