@@ -63,14 +63,14 @@ object Summit:
   given orderingSummits: Ordering[List[Summit]] = Ordering.by(_.headOption)
 
 def solveMaze(forbidden: Seq[Summit])(using goals: Goals, dimension: Dimension): Option[(Int, List[Summit])] =
-  solver(TreeSet((0, goals._1, List(goals._1))), forbidden.map(_ -> true).toMap, goals._2)
+  solver(TreeSet((0, goals._1, List(goals._1))), forbidden.toSet, goals._2)
 
 @tailrec
-def solver(toExplore: TreeSet[(Int, Summit, List[Summit])], forbidden: Map[Summit, Boolean], toReach: Summit)(using dimension: Dimension): Option[(Int, List[Summit])] =
+def solver(toExplore: TreeSet[(Int, Summit, List[Summit])], forbidden: Set[Summit], toReach: Summit)(using dimension: Dimension): Option[(Int, List[Summit])] =
   toExplore match
     case empty if empty.isEmpty => None
     case notEmpty =>
       notEmpty.head match
         case (distance, summit, list) if summit == toReach => Some((distance, list))
         case (distance, summit, list) =>
-          solver(toExplore.tail ++ summit.next.filterNot(forbidden.contains).map(sum => (distance + 1, sum, sum :: list)), forbidden + (summit -> true), toReach)
+          solver(toExplore.tail ++ summit.next.filterNot(forbidden.contains).map(sum => (distance + 1, sum, sum :: list)), forbidden + summit, toReach)
