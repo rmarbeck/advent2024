@@ -1,4 +1,5 @@
 import scala.annotation.tailrec
+import scala.collection.immutable.TreeSet
 
 type Links = Map[String, Set[String]]
 
@@ -13,19 +14,36 @@ object Solution:
 
     val result = grouped.filter(_._1.startsWith("t")).flatMap((key, values) => connected(values.toList, Nil).map((f, s) => alpha(key, f, s))).toList.distinct
 
-    val resultb = grouped.keys.toList.foldLeft((0, grouped.keys)):
-      case ((score, remaining), currentKey) =>
-        val bestGroup = best(grouped(currentKey) + currentKey)
-        (Math.max(score, bestGroup.length), remaining.filterNot(bestGroup.contains))
+    import Order.given
 
 
-    val result1 = s"${result.length}"
+    println(grouped.map((key, values) => values + key).map(_.toList))
+    val resultb = findBest(TreeSet(grouped.map((key, values) => values + key).map(_.toList).toList:_ *))
+
+    val result1 = s"${result}"
     val result2 = s"$resultb"
 
     (s"$result1", s"$result2")
 
+object Order:
+  given orderingList: Ordering[List[String]] = Ordering.by(str => (-str.length, str.sorted.mkString))
+
 def alpha(one: String, two: String, three: String): String =
   List(one, two, three).sorted.mkString("-")
+
+@tailrec
+def findBest(toExplore: TreeSet[List[String]])(using links: Links): Int =
+  toExplore match
+    case empty if empty.isEmpty => 0
+    case notEmpty =>
+      val (head, tail) = (notEmpty.head, notEmpty.tail)
+      val matches = head.forall:
+        member =>
+          val next = links(member) + member
+          head.forall(next.contains)
+      matches match
+        case true => head.size
+        case false => findBest(tail ++ head.combinations(head.size - 1))
 
 @tailrec
 def connected(list: List[String], current: List[(String, String)])(using links: Links): List[(String, String)] =
