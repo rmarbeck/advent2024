@@ -13,7 +13,10 @@ object Solution:
 
     val result = grouped.filter(_._1.startsWith("t")).flatMap((key, values) => connected(values.toList, Nil).map((f, s) => alpha(key, f, s))).toList.distinct
 
-    val resultb = grouped.keys.map(key => best(grouped(key) + key)).max
+    val resultb = grouped.keys.toList.foldLeft((0, grouped.keys)):
+      case ((score, remaining), currentKey) =>
+        val bestGroup = best(grouped(currentKey) + currentKey)
+        (Math.max(score, bestGroup.length), remaining.filterNot(bestGroup.contains))
 
 
     val result1 = s"${result.length}"
@@ -33,17 +36,17 @@ def connected(list: List[String], current: List[(String, String)])(using links: 
         case currentComputerInTail if links(currentComputerInTail).contains(head) => (currentComputerInTail, head)
       connected(tail, updatedList ::: current)
 
-def best(setOfComputers: Set[String])(using links: Links): Int =
+def best(setOfComputers: Set[String])(using links: Links): List[String] =
   setOfComputers match
-    case empty if empty.isEmpty => 0
+    case empty if empty.isEmpty => Nil
     case notEmpty =>
       val (head, tail, currentSize) = (notEmpty.head, notEmpty.tail, notEmpty.size)
       tail.foldLeft(links(head) + head):
         case (acc, currentComputer) => acc intersect (links(currentComputer) + currentComputer)
-      .size match
-        case value if value == currentSize => value
+      match
+        case value if value.size == currentSize => value.toList
         case other =>
-          setOfComputers.toList.combinations(currentSize - 1).map(subList => best(subList.toSet)).max
+          setOfComputers.toList.combinations(currentSize - 1).map(subList => best(subList.toSet)).maxBy(_.length)
 
 
 
