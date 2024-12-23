@@ -1,26 +1,52 @@
+import scala.annotation.tailrec
+
+type Links = Map[String, Set[String]]
+
 object Solution:
   def run(inputLines: Seq[String]): (String, String) =
 
-    val grouped = inputLines.flatMap:
-      case s"$first-$second" => List((first, second), (second, first))
-    .groupBy(_._1)
-    
-    val tComputers = grouped.keys.filter(_.contains("t"))
-    
-    grouped.filter(_._1.contains("t")).flatMap:
-      case list =>
-        list.
+    val grouped: Links = inputLines.flatMap:
+      case s"$first-$second" => List(first -> second, second -> first)
+    .groupMapReduce(_._1)((_, other) => Set(other))(_ ++ _)
 
-    //
-    // Code is here
-    //
+    given Links = grouped
+
+    val result = grouped.filter(_._1.startsWith("t")).flatMap((key, values) => connected(values.toList, Nil).map((f, s) => alpha(key, f, s))).toList.distinct
+
+    val resultb = grouped.keys.map(key => best(grouped(key) + key)).max
 
 
-
-    val result1 = s""
-    val result2 = s""
+    val result1 = s"${result.length}"
+    val result2 = s"$resultb"
 
     (s"$result1", s"$result2")
 
-def isConnected(list: List[String])
+def alpha(one: String, two: String, three: String): String =
+  List(one, two, three).sorted.mkString("-")
 
+@tailrec
+def connected(list: List[String], current: List[(String, String)])(using links: Links): List[(String, String)] =
+  list match
+    case Nil => current
+    case head :: tail =>
+      val updatedList = tail.collect:
+        case currentComputerInTail if links(currentComputerInTail).contains(head) => (currentComputerInTail, head)
+      connected(tail, updatedList ::: current)
+
+def best(setOfComputers: Set[String])(using links: Links): Int =
+  setOfComputers match
+    case empty if empty.isEmpty => 0
+    case notEmpty =>
+      val (head, tail, currentSize) = (notEmpty.head, notEmpty.tail, notEmpty.size)
+      tail.foldLeft(links(head) + head):
+        case (acc, currentComputer) => acc intersect (links(currentComputer) + currentComputer)
+      .size match
+        case value if value == currentSize => value
+        case other =>
+          setOfComputers.toList.combinations(currentSize - 1).map(subList => best(subList.toSet)).max
+
+
+
+def findSetConnected(computer: String)(using links: Links): Int =
+  val attached = links(computer)
+  attached.map(cu => (links(cu) intersect(attached + computer)).size).max
