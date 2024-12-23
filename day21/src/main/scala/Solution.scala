@@ -17,7 +17,7 @@ object Solution:
       )
       .sum
 
-    (2 to 25).foreach:
+    (2 to 26).foreach:
       current => given Occurences = current
       val result = inputLines.map(input =>
           input.take(3).toLong * guessMoves(input)
@@ -162,8 +162,11 @@ def guessDirectionalMoves(goal: String): List[String] =
 
 class Cache:
   import scala.collection.mutable
+
   given Cache = this
+
   val cache3: mutable.Map[(String, Int), Long] = mutable.Map()
+
   def optimizedCached2(goal: String, level: Int) = cache3.getOrElseUpdate((goal, level), findOptimizedSub3(goal, level))
   val cache2: mutable.Map[String, Int] = mutable.Map()
   def optimizedCached(goal: String) = cache2.getOrElseUpdate(goal, guessDirectionalMovesCached(goal).length)
@@ -220,6 +223,7 @@ def findOptimized(wordContainingA: String, initialGoal: String)(using cache: Cac
     case (subWords, destination) =>
       subWords.permutations.filter(_.isValidFrom(destination)).toList.map:
         currentPermutation =>
+          val test = currentPermutation
           findOptimizedPart1(guessDirectionalMovesStd(s"${currentPermutation}A"), occurences - 1)
       .min
   .sum
@@ -233,7 +237,7 @@ def findOptimizedPart1(wordContainingA: String, nb: Int)(using cache: Cache): Lo
       //val next = cache.guessDirectionalMovesCached(wordContainingA).mkString("A") + "A"
       import scala.collection.parallel._
       import collection.parallel.CollectionConverters.ImmutableSeqIsParallelizable
-      findOptimizedSub3(wordContainingA, nb + 1)
+      findOptimizedSub3(wordContainingA, nb)
       /*cache.guessDirectionalMovesCached(wordContainingA).par.map:
         sub => findOptimizedPart1(s"${sub}A", nb - 1)
       .sum*/
@@ -241,6 +245,12 @@ def findOptimizedPart1(wordContainingA: String, nb: Int)(using cache: Cache): Lo
       //println(s"guessDirectionalMoves => ${guessDirectionalMoves(wordContainingA).mkString("A") + "A"}")
       //findOptimizedPart1(next, nb -1)
 
+
+def findOptimizedSub3(wordContainingA: String, nb: Int)(using cache: Cache): Long =
+  nb match
+    case 0 => wordContainingA.length
+    case other =>
+      cache.guessDirectionalMovesCached(wordContainingA).map(c => cache.optimizedCached2(c, nb - 1)).sum
 
 def findOptimizedSub(wordsContainingA: List[String], nb: Int)(using cache: Cache): Long =
   import scala.collection.parallel._
@@ -250,12 +260,6 @@ def findOptimizedSub(wordsContainingA: List[String], nb: Int)(using cache: Cache
       wordsContainingA.map(_.length).sum
     case currentLevel =>
       wordsContainingA.par.map(current => findOptimizedSub(cache.guessDirectionalMovesCached(current), nb - 1)).sum
-
-def findOptimizedSub3(wordContainingA: String, nb: Int)(using cache: Cache): Long =
-  nb match
-    case 0 => wordContainingA.length
-    case other =>
-      cache.guessDirectionalMovesCached(wordContainingA).map(c => cache.optimizedCached2(s"${c}A", nb - 1)).sum
 
 def findOptimizedSub2(wordsContainingA: List[String], nb: Int, value: Long = 0L)(using cache: Cache): Long =
   nb match
@@ -267,3 +271,8 @@ def findOptimizedSub2(wordsContainingA: List[String], nb: Int, value: Long = 0L)
         case head :: tail =>
           val subValue = findOptimizedSub2(cache.guessDirectionalMovesCached(head), nb - 1, value)
           findOptimizedSub2(tail, nb , subValue)
+
+/*
+401006112372796
+248919739734728
+*/
