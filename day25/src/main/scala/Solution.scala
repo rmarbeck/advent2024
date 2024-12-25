@@ -2,7 +2,7 @@ object Solution:
   def run(inputLines: Seq[String]): (String, String) =
 
     val (keys, locks) =
-      inputLines.grouped(8).map(_.take(7)).toList.collect:
+      inputLines.grouped(8).map(_.take(7)).toSeq.collect:
         lines =>
           val (head, meaningfullLines) = (lines.head, convert(lines.tail))
           head.contains("#") match
