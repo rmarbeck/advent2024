@@ -1,21 +1,17 @@
 object Solution:
   def run(inputLines: Seq[String]): (String, String) =
 
-    val keysAndLocks = inputLines.grouped(8).map(_.take(7)).toList.collect:
-      lines =>
-        val (head, meaningfull) = (lines.head, convert(lines.tail))
-        head.contains("#") match
-          case false => Key(meaningfull)
-          case true => Lock(meaningfull)
-
-    val keys = keysAndLocks.collect:
-      case k: Key => k
-
-    val locks = keysAndLocks.collect:
-      case l: Lock => l
+    val (keys, locks) =
+      inputLines.grouped(8).map(_.take(7)).toList.collect:
+        lines =>
+          val (head, meaningfullLines) = (lines.head, convert(lines.tail))
+          head.contains("#") match
+            case false => Left(Key(meaningfullLines))
+            case true => Right(Lock(meaningfullLines))
+      .partitionMap(identity)
 
     val result1 = locks.map:
-      case l => keys.count(_.fits(l))
+      l => keys.count(_.fits(l))
     .sum
 
     val result2 = s""
