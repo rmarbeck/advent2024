@@ -14,15 +14,25 @@ object Solution:
     val rules = inputLines.collect:
       case s"${input1} ${op} ${input2} -> ${output}" =>
         op match
-          case "AND" => AND(input1, input2, output)
-          case "OR" => OR(input1, input2, output)
-          case _ => XOR(input1, input2, output)
+          case "AND" => AND(Set(input1, input2), output)
+          case "OR" => OR(Set(input1, input2), output)
+          case _ => XOR(Set(input1, input2), output)
 
     given Rules = rules
 
     val result1 = connect(summon[Wires].keys.toList, Set(), summon[Wires])
 
-    rules.sortBy(_.index).foreach(println)
+
+    //rules.sortBy(_.index).foreach(println)
+    {
+      val result = swapRules("z07", "bjm")
+      val result2 = swapRules("z13", "hsw")(using result)
+      val result3 = swapRules("z18", "skf")(using result2)
+      val result4 = swapRules("nvr", "wkr")(using result3)
+      displayUntil(0, 44)(using result4)
+    }
+
+
 
     /*val badOnes =
       (0 to 44).filter:
@@ -42,20 +52,72 @@ object Solution:
         println(found)
     */
 
-    val result2 = 2
+    val result2 = Set("z07", "bjm", "z13", "hsw", "z18", "skf", "nvr", "wkr").toList.sorted.mkString(",")
+
 
     (s"$result1", s"$result2")
 
+def displayUntil(current: Int, max: Int, previous: Option[String] = None)(using rules: Rules): Unit =
+  println(s"------------ => ${current}")
+  println(rules.filter(_.index.exists(_ == current)))
+  val currentRules = rules.filter(_.index.exists(_ == current))
+  val others = currentRules.flatMap(_.values).distinct
+  val otherRules = others.flatMap:
+    oth => rules.filter(_.inputs.contains(oth))
+
+  otherRules.distinct.foreach(println)
+  current <= max match
+    case false => ()
+    case true =>
+      current match
+        case 0 =>
+          println("case 0")
+          displayUntil(current + 1, max, Some("gnn"))
+        case _ =>
+
+          val xor = rules.filter(_.index.exists(_ == current)).filterNot(_.output.startsWith("z")).collect:
+            case rule: XOR => rule.output
+          .head
+          val and = rules.filter(_.index.exists(_ == current)).collect:
+            case rule: AND => rule.output
+          .head
+          val xor2 = rules.filter(_.contains(xor, previous.get)).collect:
+            case rule: AND => rule.output
+          .headOption
+          xor2 match
+            case Some(value) =>
+              val or = rules.filter(_.contains(value, and)).collect:
+                case rule: OR => rule.output
+              .head
+
+              println(s"XOR is $xor, AND is $and, XOR2 is $value, OR is $or")
+              println("------------")
+
+              displayUntil(current + 1, max, Some(or))
+            case None =>
+              val pos1 = rules.filter(_.inputs.contains(xor))
+              val pos2 = rules.filter(_.inputs.contains(previous.get))
+              println(s"$pos1")
+              println("OR")
+              println(s"$pos2")
+              println("IS NOT GOOD")
+
+
+
+
+
+
+/*
 def findErrors(currentIndex: Int, previous: Option[String], next: Option[String], rules: Rules, errors: List[String]): Int =
   val currentRules = rules.filter(_.index.forall(_ == currentIndex))
   currentIndex match
     case 0 =>
-      val prev = currentRules.find(_.isInstanceOf[AND]).map(_.out)
+      val prev = currentRules.find(_.isInstanceOf[AND]).map(_.output)
       findErrors(1, None, prev, rules, errors)
     case 1 =>
-      val newPrev = currentRules.filterNot(_.out.startsWith("z")).find(_.isInstanceOf[XOR]).map(_.out)
-      val next = currentRules.filterNot(_.out.startsWith("z")).find(_.isInstanceOf[AND]).map(_.out)
-      val currentRule = currentRules.filter(_.out.startsWith("z")).headOption
+      val newPrev = currentRules.filterNot(_.output.startsWith("z")).find(_.isInstanceOf[XOR]).map(_.output)
+      val next = currentRules.filterNot(_.output.startsWith("z")).find(_.isInstanceOf[AND]).map(_.output)
+      val currentRule = currentRules.filter(_.output.startsWith("z")).headOption
       val test = (for
         np <- newPrev; ne <- next; cu <- currentRule
       yield
@@ -66,7 +128,7 @@ def findErrors(currentIndex: Int, previous: Option[String], next: Option[String]
         case Some(false) =>
           findErrors(currentIndex + 1, newPrev, next, rules, errors)
         case _ => throw Exception("Not supported")
-
+*/
 def buildWires(rank: Int): Wires =
   def padded(value: Int): String =
     value match
@@ -82,12 +144,8 @@ def buildWires(rank: Int): Wires =
 
 def swapRules(output1: String, output2: String)(using rules: Rules): Rules =
   rules.map:
-    case rule1 @ AND(_, _, output) if output == output1 => rule1.copy(output = output2)
-    case rule1 @ AND(_, _, output) if output == output2 => rule1.copy(output = output1)
-    case rule1 @ OR(_, _, output) if output == output1 => rule1.copy(output = output2)
-    case rule1 @ OR(_, _, output) if output == output2 => rule1.copy(output = output1)
-    case rule1 @ XOR(_, _, output) if output == output1 => rule1.copy(output = output2)
-    case rule1 @ XOR(_, _, output) if output == output2 => rule1.copy(output = output1)
+    case rule: (AND | OR | XOR) if rule.output == output1 => rule.changeOutput(output2)
+    case rule: (AND | OR | XOR) if rule.output == output2 => rule.changeOutput(output1)
     case rule => rule
 
 extension (bool: Boolean)
@@ -107,7 +165,7 @@ def isOK(activeWiresToExplore: List[String], explored: Set[String], in: Wires)(u
       val newWires = rules.filter(_.withInput(head)).flatMap:
         rule =>
           rule.apply() match
-            case Some(value) => Some(rule.out -> value)
+            case Some(value) => Some(rule.output -> value)
             case None => None
       .toMap
 
@@ -132,7 +190,7 @@ def connect(activeWiresToExplore: List[String], explored: Set[String], in: Wires
       val newWires = rules.filter(_.withInput(head)).flatMap:
         rule =>
           rule.apply() match
-            case Some(value) => Some(rule.out -> value)
+            case Some(value) => Some(rule.output -> value)
             case None => None
       .toMap
 
@@ -141,38 +199,44 @@ def connect(activeWiresToExplore: List[String], explored: Set[String], in: Wires
       connect(newWiresToExplore.toList, explored + head, in ++ newWires)
 
 
-trait Rule(val in1: String, val in2: String, val out: String):
+trait Rule:
+  def values: Set[String] = Set(input1, input2, output)
+  def changeOutput(newOutput: String): Rule
+  def inputs: Set[String]
+  lazy val input1: String = inputs.toList.sorted.head
+  lazy val input2: String = inputs.toList.sorted.last
+  def output: String
+
   def index: Option[Int] =
-    (in1, in2, out) match
+    (input1, input2, output) match
       case (s"x$index", _, _) => Some(index)
-      case (s"y$index", _, _) => Some(index)
-      case (s"z$index", _, _) => Some(index)
-      case (_, s"x$index", _) => Some(index)
       case (_, s"y$index", _) => Some(index)
-      case (_, s"z$index", _) => Some(index)
       case (_, _, s"z$index") => Some(index)
       case _ => None
   .map(_.toInt)
 
   def contains(first: String, second: String): Boolean =
-    (in1 == first || in1 == second) && (in2 == first || in2 == second)
+    inputs.contains(first) && inputs.contains(second)
 
   def withInput(input: String): Boolean =
-    input == in1 || input == in2
+    input == input1 || input == input2
   def op: (Boolean, Boolean) => Boolean
   final def apply()(using wires: Wires): Option[Boolean] =
     for
-      input1 <- wires.get(in1)
-      input2 <- wires.get(in2)
+      in1 <- wires.get(input1)
+      in2 <- wires.get(input2)
     yield
-      op(input1, input2)
+      op(in1, in2)
 
-case class AND(input1: String, input2: String, output: String) extends Rule(input1 ,input2, output):
+case class AND(inputs: Set[String], output: String) extends Rule:
+  override def changeOutput(newOutput: String) = this.copy(output = newOutput)
   override def op: (Boolean, Boolean) => Boolean = _ & _
 
-case class OR(input1: String, input2: String, output: String) extends Rule(input1 ,input2, output):
+case class OR(inputs: Set[String], output: String) extends Rule:
+  override def changeOutput(newOutput: String) = this.copy(output = newOutput)
   override def op: (Boolean, Boolean) => Boolean = _ | _
 
-case class XOR(input1: String, input2: String, output: String) extends Rule(input1 ,input2, output):
+case class XOR(inputs: Set[String], output: String) extends Rule:
+  override def changeOutput(newOutput: String) = this.copy(output = newOutput)
   override def op: (Boolean, Boolean) => Boolean = _ ^ _
 
