@@ -10,8 +10,8 @@ object Solution:
             case true => Right(Lock(meaningfullLines))
       .partitionMap(identity)
 
-    val result1 = locks.map:
-      l => keys.count(_.fits(l))
+    val result1 = keys.map:
+      k => locks.count(k.fits)
     .sum
 
     val result2 = s""
