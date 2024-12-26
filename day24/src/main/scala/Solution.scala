@@ -1,7 +1,9 @@
+import OP._
+
 import scala.annotation.tailrec
 
 type Wires = Map[String, Boolean]
-type Rules = Seq[Rule]
+type Rules = Seq[Gate]
 
 object Solution:
   def run(inputLines: Seq[String]): (String, String) =
@@ -12,43 +14,35 @@ object Solution:
     .toMap
 
     val rules = inputLines.collect:
-      case s"${input1} ${op} ${input2} -> ${output}" =>
-        op match
-          case "AND" => AND(Set(input1, input2), output)
-          case "OR" => OR(Set(input1, input2), output)
-          case _ => XOR(Set(input1, input2), output)
+      case s"${input1} ${OP(op)} ${input2} -> ${output}" => Gate(Set(input1, input2), output, op)
 
     given Rules = rules
 
     val result1 = connect(summon[Wires].keys.toList, Set(), summon[Wires])
 
+    val lastIndex = rules.flatMap(_.index).max - 1
+
     val result2 = rules.size match
       case 3 => "N/A"
       case _ =>
-        val res = findErrors(0, 44, None, rules, Nil)
+        val res = findErrors(0, lastIndex, None, rules, Nil)
         res.flatMap(_.toList).sorted.mkString(",")
 
     (s"$result1", s"$result2")
 
-extension (index: Int)
-  def asIndex:String =
-    index < 10 match
-      case true => s"0$index"
-      case false => s"$index"
-
 def findError(current: Int, previous: String, rules: Rules): (Option[String], Option[(String, String)], Rules) =
-  val (one, two, three, four) = rules.foldLeft((None, None, None, None): (Option[Rule], Option[Rule], Option[Rule], Option[Rule])):
-    case (acc, r: XOR) if r.input1 == s"x${current.asIndex}" => (Some(r), acc._2, acc._3, acc._4)
-    case (acc, r: AND) if r.input1 == s"x${current.asIndex}" => (acc._1, Some(r), acc._3, acc._4)
-    case (acc, r: AND) if r.inputs.contains(previous) => (acc._1, acc._2, Some(r), acc._4)
-    case (acc, r: XOR) if r.inputs.contains(previous) => (acc._1, acc._2, acc._3, Some(r))
+  val (one, two, three, four) = rules.foldLeft((None, None, None, None): (Option[Gate], Option[Gate], Option[Gate], Option[Gate])):
+    case (acc, r@ Gate(_, _, _, XOR)) if r.input1 == s"x${current.asIndex}" => (Some(r), acc._2, acc._3, acc._4)
+    case (acc, r@ Gate(_, _, _, AND)) if r.input1 == s"x${current.asIndex}" => (acc._1, Some(r), acc._3, acc._4)
+    case (acc, r@ Gate(_, _, _, AND)) if r.contains(previous) => (acc._1, acc._2, Some(r), acc._4)
+    case (acc, r@ Gate(_, _, _, XOR)) if r.contains(previous) => (acc._1, acc._2, acc._3, Some(r))
     case (acc, _) => acc
 
   val fiveOption = for
     t2 <- two; t3 <- three
   yield
     rules.collectFirst:
-      case r: OR if r.inputs == Set(t2.output, t3.output) => r
+      case r@ Gate(_, _, _, OR) if r.inputs == Set(t2.output, t3.output) => r
 
   val swap1 = for
     o1 <- one; t2 <- two; t3 <- three
@@ -58,7 +52,7 @@ def findError(current: Int, previous: String, rules: Rules): (Option[String], Op
 
   val swap4 = for
     f4 <- four
-    if (f4.output != s"z${current.asIndex}")
+    if f4.output != s"z${current.asIndex}"
   yield
     (f4.output, s"z${current.asIndex}")
 
@@ -69,8 +63,6 @@ def findError(current: Int, previous: String, rules: Rules): (Option[String], Op
       (four.map(_.output) ,swap, swapRules(first, second)(using rules))
     case _ => (fiveOption.get.map(_.output) ,None, rules)
 
-
-
 @tailrec
 def findErrors(current: Int, max: Int, previous: Option[String], rules: Rules, errors: List[(String, String)]): List[(String, String)] =
   current <= max match
@@ -79,7 +71,7 @@ def findErrors(current: Int, max: Int, previous: Option[String], rules: Rules, e
       current match
         case 0 =>
           val firstCarry = rules.collectFirst:
-            case rule: AND if rule.index.contains(0) => rule
+            case rule@ Gate(_, _, _, AND) if rule.index.contains(0) => rule
           findErrors(current + 1, max, firstCarry.map(_.output), rules, errors)
         case _ =>
           findError(current, previous.get, rules) match
@@ -89,15 +81,9 @@ def findErrors(current: Int, max: Int, previous: Option[String], rules: Rules, e
 
 def swapRules(output1: String, output2: String)(using rules: Rules): Rules =
   rules.map:
-    case rule: (AND | OR | XOR) if rule.output == output1 => rule.changeOutput(output2)
-    case rule: (AND | OR | XOR) if rule.output == output2 => rule.changeOutput(output1)
+    case rule if rule.output == output1 => rule.changeOutput(output2)
+    case rule if rule.output == output2 => rule.changeOutput(output1)
     case rule => rule
-
-extension (bool: Boolean)
-  def asDigit: String =
-    bool match
-      case true => "1"
-      case false => "0"
 
 @tailrec
 def isOK(activeWiresToExplore: List[String], explored: Set[String], in: Wires)(using rules: Rules): Boolean =
@@ -140,45 +126,48 @@ def connect(activeWiresToExplore: List[String], explored: Set[String], in: Wires
 
       connect(newWiresToExplore.toList, explored + head, in ++ newWires)
 
+enum OP(op :(Boolean, Boolean) => Boolean):
+  case AND extends OP(_ & _)
+  case OR extends OP(_ | _)
+  case XOR extends OP(_ ^ _)
 
-trait Rule:
-  def values: Set[String] = Set(input1, input2, output)
-  def changeOutput(newOutput: String): Rule
-  def inputs: Set[String]
-  lazy val input1: String = inputs.toList.min
-  lazy val input2: String = inputs.toList.max
-  def output: String
+  def apply: (Boolean, Boolean) => Boolean = op.apply
+
+object OP:
+  def unapply(asString: String): Option[OP] = Some(OP.valueOf(asString))
+
+case class Gate private(input1: String, input2: String, output: String, op: OP):
+  def changeOutput(newOutput: String): Gate = this.copy(output = newOutput)
+  def inputs: Set[String] = Set(input1, input2)
 
   def index: Option[Int] =
-    (input1, input2, output) match
+    ((input1, input2, output) match
       case (s"x$index", _, _) => Some(index)
       case (_, s"y$index", _) => Some(index)
       case (_, _, s"z$index") => Some(index)
       case _ => None
-  .map(_.toInt)
+      ).map(_.toInt)
 
-  def contains(first: String, second: String): Boolean =
-    inputs.contains(first) && inputs.contains(second)
+  def contains(input: String): Boolean = inputs.contains(input)
+  def contains(first: String, second: String): Boolean = contains(first) && contains(second)
 
-  def withInput(input: String): Boolean =
-    input == input1 || input == input2
-  def op: (Boolean, Boolean) => Boolean
+  def withInput(input: String): Boolean = input == input1 || input == input2
+
   final def apply()(using wires: Wires): Option[Boolean] =
     for
-      in1 <- wires.get(input1)
-      in2 <- wires.get(input2)
+      in1 <- wires.get(input1); in2 <- wires.get(input2)
     yield
-      op(in1, in2)
+      op.apply(in1, in2)
 
-case class AND(inputs: Set[String], output: String) extends Rule:
-  override def changeOutput(newOutput: String): AND = this.copy(output = newOutput)
-  override def op: (Boolean, Boolean) => Boolean = _ & _
+object Gate:
+  def apply(inputs: Set[String], out: String, op: OP): Gate =
+    require(inputs.size == 2)
+    val Seq(first, second) = inputs.toSeq.sorted
+    Gate(first, second, out, op)
 
-case class OR(inputs: Set[String], output: String) extends Rule:
-  override def changeOutput(newOutput: String): OR = this.copy(output = newOutput)
-  override def op: (Boolean, Boolean) => Boolean = _ | _
+extension (index: Int)
+  def asIndex:String = if index < 10 then s"0$index" else s"$index"
 
-case class XOR(inputs: Set[String], output: String) extends Rule:
-  override def changeOutput(newOutput: String): XOR = this.copy(output = newOutput)
-  override def op: (Boolean, Boolean) => Boolean = _ ^ _
+extension (bool: Boolean)
+  def asDigit: String = if bool then "1" else "0"
 
