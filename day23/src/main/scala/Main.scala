@@ -1,13 +1,13 @@
 import scala.io.Source
-//import com.typesafe.scalalogging.Logger
+import com.typesafe.scalalogging.Logger
 
-/*val loggerAOC: Logger = Logger("aoc")
+val loggerAOC: Logger = Logger("aoc")
 val loggerAOCPart1: Logger = Logger("aoc.part1")
-val loggerAOCPart2: Logger = Logger("aoc.part2")*/
+val loggerAOCPart2: Logger = Logger("aoc.part2")
 
 @main def hello(): Unit =
-  //loggerAOC.trace("Root trace activated")
-  //loggerAOC.debug("Root debug activated")
+  loggerAOC.trace("Root trace activated")
+  loggerAOC.debug("Root debug activated")
   println("Launching Day1")
   List[() => (String, String)]( () => Solver.solveTest, () => Solver.solve).foreach: f =>
     val (score1, score2) = f.apply()
