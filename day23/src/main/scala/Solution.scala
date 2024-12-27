@@ -8,33 +8,31 @@ object Solution:
 
     val links: Links = inputLines.flatMap:
       case s"$first-$second" => List(first -> second, second -> first)
-    .groupMapReduce(_._1)((_, other) => Set(other))(_ ++ _)
+    .groupMapReduce(_._1)((key, other) => Set(key, other))(_ ++ _)
 
     given Links = links
 
     val result1 = links.filter(_._1.startsWith("t")).flatMap:
-      (key, values) => connected(values, Set()).map((f, s) => alpha(key, f, s))
-    .toList.distinct
+      (key, values) => connected(values - key).map(alpha(key, _, _))
+    .toSet
 
     import Order.given
 
-    val result2 = findBest(TreeSet(links.map((key, values) => values + key).map(_.toList).toList:_ *))
+    val result2 = findBest(TreeSet(links.map((key, values) => values + key).map(_.toList).toSeq:_ *))
 
     (s"${result1.size}", s"$result2")
 
 object Order:
-  given orderingList: Ordering[List[String]] = Ordering.by(str => (-str.length, str.sorted.mkString))
+  given orderingListOfString: Ordering[List[String]] = Ordering.by(str => (-str.length, str.sorted.mkString))
 
-def alpha(one: String, two: String, three: String): String =
-  List(one, two, three).sorted.mkString("-")
+def alpha(threes: String*): String =
+  List(threes:_ *).sorted.mkString("-")
 
 @tailrec
 def findBest(toExplore: TreeSet[List[String]])(using links: Links): String =
   def isTheOne(toTest: Set[String]): Boolean =
     toTest.forall:
-      member =>
-        val next = links(member) + member
-        (toTest intersect next) == toTest
+      member => toTest.subsetOf(links(member))
   toExplore match
     case empty if empty.isEmpty => ""
     case notEmpty =>
@@ -45,7 +43,7 @@ def findBest(toExplore: TreeSet[List[String]])(using links: Links): String =
         findBest(notEmpty.tail ++ head.combinations(head.size - 1))
 
 @tailrec
-def connected(input: Set[String], current: Set[(String, String)])(using links: Links): Set[(String, String)] =
+def connected(input: Set[String], current: Set[(String, String)] = Set())(using links: Links): Set[(String, String)] =
   input match
     case empty if empty.isEmpty => current
     case notEmpty =>
