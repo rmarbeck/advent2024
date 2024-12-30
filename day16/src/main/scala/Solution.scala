@@ -68,13 +68,21 @@ case class Summit(x: Int, y: Int, dir: Dir):
 
 object Summit:
   given orderingSummit: Ordering[Summit] = Ordering.by(s => (s.x, s.y, s.dir.ordinal))
-  given orderingSummits: Ordering[List[Summit]] = Ordering.by(_.hashCode)
+
 
 def solveMaze(forbidden: Seq[Summit])(using goals: Goals): Option[(Long, Long)] =
-  solver(TreeSet((0, goals._1, List(goals._1))), forbidden.toSet, goals._2)
+  solver(TreeSet((0, goals._1, Summits(List(goals._1)))), forbidden.toSet, goals._2)
+
+case class Summits(summits: List[Summit]):
+  lazy val lhcode: Int = summits.hashCode()
+  lazy val withoutDir: List[(Int, Int)] = summits.map(_.withoutDir)
+  def add(summit: Summit): Summits = Summits(summit :: summits)
+
+object Summits:
+  given orderingSummits: Ordering[Summits] = Ordering.by(_.lhcode)
 
 @tailrec
-def solver(toExplore: TreeSet[(Long, Summit, List[Summit])], forbidden: Set[Summit], toReach: List[Summit], shortestDistance: Option[Long] = None, shortestPaths: Seq[List[(Int, Int)]] = Nil): Option[(Long, Long)] =
+def solver(toExplore: TreeSet[(Long, Summit, Summits)], forbidden: Set[Summit], toReach: List[Summit], shortestDistance: Option[Long] = None, shortestPaths: Seq[List[(Int, Int)]] = Nil): Option[(Long, Long)] =
   toExplore match
     case empty if empty.isEmpty => None
     case notEmpty =>
@@ -82,9 +90,9 @@ def solver(toExplore: TreeSet[(Long, Summit, List[Summit])], forbidden: Set[Summ
         case (distance, summit, list) if toReach.contains(summit) =>
           shortestDistance match
             case None =>
-              solver(toExplore.tail, forbidden, toReach, Some(distance), (summit.withoutDir :: list.map(_.withoutDir)) +: Nil)
+              solver(toExplore.tail, forbidden, toReach, Some(distance), list.add(summit).withoutDir +: Nil)
             case Some(value) if value == distance =>
-              solver(toExplore.tail, forbidden, toReach, shortestDistance, (summit.withoutDir :: list.map(_.withoutDir)) +: shortestPaths)
+              solver(toExplore.tail, forbidden, toReach, shortestDistance, list.add(summit).withoutDir +: shortestPaths)
             case Some(value) => Some((value, shortestPaths.flatten.distinct.length))
         case (distance, summit, list) =>
-          solver(toExplore.tail ++ summit.next.filterNot(forbidden.contains).map(sum => (distance + summit.weightBetween(sum), sum, sum :: list)), forbidden + summit, toReach, shortestDistance, shortestPaths)
+          solver(toExplore.tail ++ summit.next.filterNot(forbidden.contains).map(sum => (distance + summit.weightBetween(sum), sum, list.add(sum))), forbidden + summit, toReach, shortestDistance, shortestPaths)
