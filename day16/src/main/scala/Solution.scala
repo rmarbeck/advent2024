@@ -73,13 +73,13 @@ object Summit:
 def solveMaze(forbidden: Seq[Summit])(using goals: Goals): Option[(Long, Long)] =
   solver(TreeSet((0, goals._1, Summits(List(goals._1)))), forbidden.toSet, goals._2)
 
-case class Summits(summits: List[Summit]):
-  lazy val lhcode: Int = summits.hashCode()
+case class Summits private (summits: List[Summit], order: Int):
   lazy val withoutDir: List[(Int, Int)] = summits.map(_.withoutDir)
-  def add(summit: Summit): Summits = Summits(summit :: summits)
+  def add(summit: Summit): Summits = Summits(summit :: summits, summit.hashCode() + order)
 
 object Summits:
-  given orderingSummits: Ordering[Summits] = Ordering.by(_.lhcode)
+  def apply(summits: List[Summit]): Summits = Summits(summits, summits.hashCode())
+  given orderingSummits: Ordering[Summits] = Ordering.by(_.order)
 
 @tailrec
 def solver(toExplore: TreeSet[(Long, Summit, Summits)], forbidden: Set[Summit], toReach: List[Summit], shortestDistance: Option[Long] = None, shortestPaths: Seq[List[(Int, Int)]] = Nil): Option[(Long, Long)] =
