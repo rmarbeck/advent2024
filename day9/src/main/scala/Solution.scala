@@ -36,24 +36,31 @@ def computePart1(blocks: Array[Block]): Long =
       case head @ Block(_, 0, freeInHead) =>
         blocksDQ.length match
           case 1 => value
-          case _ =>
-            blocksDQ.removeHead()
+          case length =>
             blocksDQ.last match
               case last if last.fitsIn(head) =>
                 blocksDQ.removeLast()
-                blocksDQ.prepend(last.moveInFreeSpaceOf(head))
+                blocksDQ.updateHead(last.moveInFreeSpaceOf(head))
               case last =>
-                blocksDQ.removeLast()
-                blocksDQ.append(last.removeMoveable(freeInHead))
-                blocksDQ.prepend(last.moveAsMuchAsPossibleInFreeSpaceOf(head))
+                blocksDQ.updateLast(last.removeMoveable(freeInHead))
+                blocksDQ.updateHead(last.moveAsMuchAsPossibleInFreeSpaceOf(head))
             computeRec(index, value)
-      case head =>
+      case head @ Block(_, nonEmptyLength, freeInHead) if freeInHead != 0 =>
+        blocksDQ.updateHead(head.freeIt)
+        computeRec(index + nonEmptyLength, value + head.sumAt(index))
+      case head @ Block(_, nonEmptyLength, 0) =>
         blocksDQ.removeHead()
-        if (head.free != 0)
-          blocksDQ.prepend(head.freeIt)
-        computeRec(index + head.fileLength, value + head.sumAt(index))
+        computeRec(index + nonEmptyLength, value + head.sumAt(index))
 
   computeRec(0, 0L)(using mutable.ArrayDeque.from(blocks))
+
+extension (self: Deque)
+  def updateLast(newBlock: Block): Unit =
+    val lastIndex = self.length - 1
+    self.update(lastIndex, newBlock)
+  def updateHead(newBlock: Block): Unit =
+    self.update(0, newBlock)
+
 
 def computePart2(blocks: Array[Block]): Long =
   @tailrec
@@ -63,7 +70,7 @@ def computePart2(blocks: Array[Block]): Long =
       case _ =>
         val blockMoving = blocksDQ(indexOfBlockToMove)
         val freePlaceToFind = blockMoving.fileLength
-        val placeToMoveBlock = blocksDQ.take(indexOfBlockToMove).zipWithIndex.find(_._1.free >= freePlaceToFind)
+        val placeToMoveBlock = blocksDQ.view.take(indexOfBlockToMove).zipWithIndex.find(_._1.free >= freePlaceToFind)
         placeToMoveBlock match
           case None => computeRec(indexOfBlockToMove - 1)
           case Some(receivingBlock, receivingBlockIndex) =>
