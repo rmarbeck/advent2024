@@ -1,4 +1,5 @@
 import scala.annotation.tailrec
+import scala.collection.immutable
 type Variation = (Int, Int, Int, Int)
 
 val lastSecret: Int = 2000
@@ -10,7 +11,7 @@ object Solution:
 
     val result1 = secrets.map(nTh(lastSecret)).sum
 
-    val (_ , result2) = secrets.flatMap(variationLists).groupMapReduce(_._1)(_._2)(_ + _).maxBy(_._2)
+    val (_ , result2) = secrets.view.flatMap(variationLists).groupMapReduce(_._1)(_._2)(_ + _).maxBy(_._2)
 
     (s"$result1", s"$result2")
 
@@ -28,8 +29,8 @@ def nTh(nb: Int)(secret: Long): Long =
     case _ => nTh(nb - 1)(next(secret))
 
 def next(secret: Long): Long =
-  def prune(value: Long): Long = value % 16777216
-  def mix(value: Long, in: Long): Long = value ^ in
+  inline def prune(value: Long): Long = value % 16777216
+  inline def mix(value: Long, in: Long): Long = value ^ in
 
   val secretB = prune(mix(secret * 64, secret))
   val secretC = prune(mix(secretB / 32, secretB))
