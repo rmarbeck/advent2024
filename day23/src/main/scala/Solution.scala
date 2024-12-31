@@ -31,7 +31,7 @@ case class Computers private (names: Set[String], order: Int):
 
 object Computers:
   def apply(names: List[String]): Computers = Computers(names.toSet, names.hashCode())
-  given orderingListOfString: Ordering[Computers] = Ordering.by(computers => (-computers.length, computers.order))
+  given ordering: Ordering[Computers] = Ordering.by(computers => (-computers.length, computers.order))
 
 @tailrec
 def findBest(toExplore: TreeSet[Computers])(using links: Links): String =
