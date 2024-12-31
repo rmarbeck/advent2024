@@ -1,4 +1,5 @@
-import scala.annotation.{tailrec, targetName}
+import scala.annotation.targetName
+import scala.collection.SeqView
 import scala.collection.parallel.*
 import scala.collection.parallel.CollectionConverters.ImmutableSeqIsParallelizable
 
@@ -10,9 +11,9 @@ object Solution:
     val equations = inputLines.collect:
       case s"${result}: ${terms}" => Equation(result, terms)
 
-    val (matchingPart1, notMatchingPart1) = equations.par.partition(matching(Part1))
+    val (matchingPart1, notMatchingPart1) = equations.par.partition(_.matchesPart1)
 
-    val matchingPart2 = notMatchingPart1.par.withFilter(matching(Part2))
+    val matchingPart2 = notMatchingPart1.par.withFilter(_.matchesPart2)
 
     val List(result1, result2Partial) =
       List(matchingPart1, matchingPart2).map(_.map(_.result).sum)
@@ -22,44 +23,30 @@ object Solution:
     (s"$result1", s"$result2")
 
 case class Equation(result: Long, terms: List[Long]):
-  lazy val minimums =
-    val diffs = terms.scanRight(0L)(_ + _)
-    val corrections = terms.length to 0 by -1
-    diffs.zip(corrections).map(_ - _ - result).tail
+  import Equation.{allFunctions, functionsPart1}
+  private def copies(ops: SeqView[Operation]): SeqView[Equation] =
+    val (head, others) = (terms.head, terms.tail)
+    ops.map:
+      op => this.copy(terms = op(head, others.head) :: others.tail)
+
+  private def matches(ops: SeqView[Operation]): Boolean =
+    terms match
+      case head :: Nil => head == result
+      case head :: others => copies(ops).exists(_.matches(ops))
+      case _ => false
+
+  def matchesPart1: Boolean = matches(functionsPart1)
+
+  def matchesPart2: Boolean = matches(allFunctions)
+
+
 object Equation:
+  private val allFunctions: SeqView[Operation] =
+    ((_ + _) :: (_ * _) :: ((_ || _): Operation) :: Nil).view
+  private val functionsPart1: SeqView[Operation] =
+    allFunctions.toList.take(2).view
   def apply(resultStr: String, termsStr: String): Equation = Equation(resultStr.toLong, termsStr.split(" ").toList.map(_.toLong))
 
-def matching(part: Part)(eq: Equation): Boolean =
-  val allFunctions: List[Operation] =
-      (_ + _) :: (_ * _) :: ((_ || _): Operation) :: Nil
-
-  val functionsToApply =
-    part match
-      case Part1 => allFunctions.take(2)
-      case Part2 => allFunctions
-
-  val Equation(result, terms) = eq
-
-  @tailrec
-  def doMatch(current: Set[Long], remainingTerms: List[Long], minimums: List[Long]): Boolean =
-    remainingTerms match
-      case head :: tail =>
-        val next =
-          functionsToApply
-            .map(func =>
-              current.map(func.apply(_ , head)).filter(_ + minimums.head <= 0))
-            .fold(Set())(_ ++ _)
-        if (next.isEmpty)
-          false
-        else
-          doMatch(next, tail, minimums.tail)
-      case Nil => current(result)
-
-  doMatch(Set(terms.head), terms.tail, eq.minimums.tail)
-
-enum Part:
-  case Part1; case Part2
-export Part._
 
 extension (current: Long)
   @targetName("concat")
